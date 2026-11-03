@@ -1,0 +1,3 @@
+# Optional local embedding and rerank models. Kept separate because this pulls
+# PyTorch and model-runtime dependencies that are not needed for BM25-only runs.
+sentence-transformers>=3,<4

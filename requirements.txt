@@ -1,0 +1,18 @@
+# Runtime dependencies
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+python-multipart>=0.0.9,<1
+python-dotenv>=1,<2
+pydantic>=2.8,<3
+langchain>=0.3,<1
+langchain-core>=0.3,<1
+langgraph>=0.2,<1
+langchain-openai>=0.2,<1
+pypdf>=5,<6
+python-docx>=1.1,<2
+jieba>=0.42.1
+rank-bm25>=0.2.2
+pymupdf>=2.1
+
+# Optional local RAG models (install separately to avoid pulling PyTorch by default):
+# sentence-transformers>=3,<4

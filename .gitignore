@@ -16,3 +16,12 @@ Thumbs.db
 
 # Local planning notes, excluded from the submission repository
 docs/00-exam-overview.md
+# Local data and runtime state
+runtime/
+frontend/node_modules/
+frontend/dist/
+# Local configuration files (keep only templates/documentation under settings/)
+settings/*
+!settings/.env.example
+!settings/README.md
+settings/.env
