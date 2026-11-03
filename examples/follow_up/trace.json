@@ -1,0 +1,550 @@
+{
+  "captured_at": "2026-11-03T14:45:00.880Z",
+  "input": {
+    "question": "那国外出差呢？",
+    "history": [
+      {
+        "role": "user",
+        "content": "上海办公室的报销期限是多久？"
+      },
+      {
+        "role": "assistant",
+        "content": "上海地区员工应在费用发生后 15 天内提交报销申请。"
+      }
+    ]
+  },
+  "output": {
+    "answer": "国外出差报销规则；适用范围：国外出差员工。；员工应在费用发生后 10 天内提交国外差旅报销申请。",
+    "status": "completed",
+    "citations": [
+      {
+        "document_id": "bd096359-4ed2-416f-b267-08265895f350",
+        "title": "overseas-policy",
+        "version_date": "2026-01-01",
+        "quote": "# 国外出差报销规则\n\n适用范围：国外出差员工。\n\n员工应在费用发生后 10 天内提交国外差旅报销申请。",
+        "chunk_id": "867a0d26-14ce-4c90-b18b-08f1162cd7be"
+      }
+    ],
+    "gaps": [],
+    "question_to_user": null,
+    "trace": [
+      {
+        "step": 0,
+        "action": "query_rewrite",
+        "arguments": {
+          "original": "那国外出差呢?",
+          "rewritten": "上海办公室国外出差报销期限是多久"
+        },
+        "result": {
+          "reason": "llm_context_follow_up",
+          "method": "llm",
+          "fallback": null
+        },
+        "mode": "real",
+        "next_action": "search_documents",
+        "decision_summary": "原问题依赖上下文，已补全为可独立检索的 query。"
+      },
+      {
+        "step": 1,
+        "action": "search_documents",
+        "arguments": {
+          "query": "上海办公室 国外出差 报销期限"
+        },
+        "mode": "real",
+        "observation": {
+          "ok": true,
+          "summary": "1 个候选 · jieba_bm25",
+          "document_ids": [
+            "bd096359-4ed2-416f-b267-08265895f350"
+          ],
+          "security_warnings": []
+        },
+        "next_action": "read_document",
+        "decision_summary": "检索到候选资料，下一步读取原文以获得可引用证据。",
+        "tool_calls_cumulative": 1,
+        "remaining_tool_calls": 7
+      },
+      {
+        "step": 2,
+        "action": "read_document",
+        "arguments": {
+          "document_id": "bd096359-4ed2-416f-b267-08265895f350",
+          "query": "国外出差 报销期限"
+        },
+        "mode": "real",
+        "observation": {
+          "ok": true,
+          "summary": "读取 1 个原文块",
+          "document_ids": [
+            "bd096359-4ed2-416f-b267-08265895f350"
+          ],
+          "security_warnings": []
+        },
+        "next_action": "finish",
+        "decision_summary": "已取得原文证据，结束工具调用并进入答案与引用校验。",
+        "tool_calls_cumulative": 2,
+        "remaining_tool_calls": 6
+      },
+      {
+        "step": 3,
+        "action": "finish",
+        "arguments": {},
+        "mode": "real",
+        "next_action": null,
+        "decision_summary": "当前证据已满足结束条件。"
+      }
+    ],
+    "mode": "real",
+    "metrics": {
+      "duration_ms": 7522.61,
+      "model": "deepseek-v4-flash",
+      "mode": "real",
+      "steps": 3,
+      "tool_calls": 2,
+      "retrieval_calls": 1,
+      "read_calls": 1,
+      "model_calls": 3,
+      "usage": {
+        "input_tokens": 3164,
+        "output_tokens": 192,
+        "total_tokens": 3356
+      },
+      "query_rewrite_method": "llm",
+      "query_rewrite_fallback": null,
+      "operation_guide_calls": 0,
+      "request_id": "34e5e5cc080e4dfb9f0447eb5fcbb4c7"
+    }
+  },
+  "run": {
+    "id": "dd3db383-4480-4195-a4ee-b161509adf51",
+    "status": "completed",
+    "request_id": "34e5e5cc080e4dfb9f0447eb5fcbb4c7",
+    "metrics": {
+      "duration_ms": 7522.61,
+      "model": "deepseek-v4-flash",
+      "mode": "real",
+      "steps": 3,
+      "tool_calls": 2,
+      "retrieval_calls": 1,
+      "read_calls": 1,
+      "model_calls": 3,
+      "usage": {
+        "input_tokens": 3164,
+        "output_tokens": 192,
+        "total_tokens": 3356
+      },
+      "query_rewrite_method": "llm",
+      "query_rewrite_fallback": null,
+      "operation_guide_calls": 0,
+      "request_id": "34e5e5cc080e4dfb9f0447eb5fcbb4c7"
+    }
+  },
+  "trace": [
+    {
+      "step": 0,
+      "action": "query_rewrite",
+      "arguments": {
+        "original": "那国外出差呢?",
+        "rewritten": "上海办公室国外出差报销期限是多久"
+      },
+      "result": {
+        "reason": "llm_context_follow_up",
+        "method": "llm",
+        "fallback": null
+      },
+      "mode": "real",
+      "next_action": "search_documents",
+      "decision_summary": "原问题依赖上下文，已补全为可独立检索的 query。"
+    },
+    {
+      "step": 1,
+      "action": "search_documents",
+      "arguments": {
+        "query": "上海办公室 国外出差 报销期限"
+      },
+      "mode": "real",
+      "observation": {
+        "ok": true,
+        "summary": "1 个候选 · jieba_bm25",
+        "document_ids": [
+          "bd096359-4ed2-416f-b267-08265895f350"
+        ],
+        "security_warnings": []
+      },
+      "next_action": "read_document",
+      "decision_summary": "检索到候选资料，下一步读取原文以获得可引用证据。",
+      "tool_calls_cumulative": 1,
+      "remaining_tool_calls": 7
+    },
+    {
+      "step": 2,
+      "action": "read_document",
+      "arguments": {
+        "document_id": "bd096359-4ed2-416f-b267-08265895f350",
+        "query": "国外出差 报销期限"
+      },
+      "mode": "real",
+      "observation": {
+        "ok": true,
+        "summary": "读取 1 个原文块",
+        "document_ids": [
+          "bd096359-4ed2-416f-b267-08265895f350"
+        ],
+        "security_warnings": []
+      },
+      "next_action": "finish",
+      "decision_summary": "已取得原文证据，结束工具调用并进入答案与引用校验。",
+      "tool_calls_cumulative": 2,
+      "remaining_tool_calls": 6
+    },
+    {
+      "step": 3,
+      "action": "finish",
+      "arguments": {},
+      "mode": "real",
+      "next_action": null,
+      "decision_summary": "当前证据已满足结束条件。"
+    }
+  ],
+  "events": [
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 1,
+      "event_type": "run_started",
+      "question": "那国外出差呢？",
+      "attachments": []
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 2,
+      "event_type": "agent_stage",
+      "title": "安全检查",
+      "detail": "检查提示词注入与敏感信息提取",
+      "status": "running",
+      "step": null
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 3,
+      "event_type": "agent_stage",
+      "title": "安全检查",
+      "detail": "通过",
+      "status": "done",
+      "step": null
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 4,
+      "event_type": "agent_stage",
+      "title": "Query 改写",
+      "detail": "那国外出差呢? → 上海办公室国外出差报销期限是多久",
+      "status": "done",
+      "step": 0
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 5,
+      "event_type": "trace",
+      "step": 0,
+      "action": "query_rewrite",
+      "arguments": {
+        "original": "那国外出差呢?",
+        "rewritten": "上海办公室国外出差报销期限是多久"
+      },
+      "result": {
+        "reason": "llm_context_follow_up",
+        "method": "llm",
+        "fallback": null
+      },
+      "mode": "real"
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 6,
+      "event_type": "agent_stage",
+      "title": "Agent 决策",
+      "detail": "结合问题、历史与工具观察选择下一步",
+      "status": "running",
+      "step": 1
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 7,
+      "event_type": "agent_stage",
+      "title": "下一步动作",
+      "detail": "选择工具 search_documents",
+      "status": "done",
+      "step": 1
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 8,
+      "event_type": "trace",
+      "step": 1,
+      "action": "search_documents",
+      "arguments": {
+        "query": "上海办公室 国外出差 报销期限"
+      },
+      "mode": "real"
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 9,
+      "event_type": "agent_stage",
+      "title": "执行工具",
+      "detail": "开始执行 search_documents",
+      "status": "running",
+      "step": 1
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 10,
+      "event_type": "agent_stage",
+      "title": "工具观察",
+      "detail": "1 个候选 · jieba_bm25",
+      "status": "done",
+      "step": 1
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 11,
+      "event_type": "observation",
+      "step": 1,
+      "ok": true,
+      "summary": "1 个候选 · jieba_bm25",
+      "document_ids": [
+        "bd096359-4ed2-416f-b267-08265895f350"
+      ],
+      "security_warnings": []
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 12,
+      "event_type": "agent_stage",
+      "title": "Agent 决策",
+      "detail": "结合问题、历史与工具观察选择下一步",
+      "status": "running",
+      "step": 2
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 13,
+      "event_type": "agent_stage",
+      "title": "下一步动作",
+      "detail": "选择工具 read_document",
+      "status": "done",
+      "step": 2
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 14,
+      "event_type": "trace",
+      "step": 2,
+      "action": "read_document",
+      "arguments": {
+        "document_id": "bd096359-4ed2-416f-b267-08265895f350",
+        "query": "国外出差 报销期限"
+      },
+      "mode": "real"
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 15,
+      "event_type": "agent_stage",
+      "title": "执行工具",
+      "detail": "开始执行 read_document",
+      "status": "running",
+      "step": 2
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 16,
+      "event_type": "agent_stage",
+      "title": "工具观察",
+      "detail": "读取 1 个原文块",
+      "status": "done",
+      "step": 2
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 17,
+      "event_type": "observation",
+      "step": 2,
+      "ok": true,
+      "summary": "读取 1 个原文块",
+      "document_ids": [
+        "bd096359-4ed2-416f-b267-08265895f350"
+      ],
+      "security_warnings": []
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 18,
+      "event_type": "agent_stage",
+      "title": "Agent 决策",
+      "detail": "结合问题、历史与工具观察选择下一步",
+      "status": "running",
+      "step": 3
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 19,
+      "event_type": "token",
+      "delta": "国外出差适用单独的规则：员工应在费用发生后 10 天内提交国外差旅报销申请，比国内报销的 15 天更短。\n\n需要说明的是，该规则文档的适用范围写的是",
+      "phase": "draft",
+      "batched": true
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 20,
+      "event_type": "agent_stage",
+      "title": "生成回答",
+      "detail": "已形成最终答复，正在校验引用与任务状态",
+      "status": "running",
+      "step": 3
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 21,
+      "event_type": "trace",
+      "step": 3,
+      "action": "finish",
+      "arguments": {},
+      "mode": "real"
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 22,
+      "event_type": "agent_stage",
+      "title": "结果校验",
+      "detail": "校验原文引用、冲突与任务状态",
+      "status": "running",
+      "step": null
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 23,
+      "event_type": "agent_stage",
+      "title": "回答完成",
+      "detail": "状态：completed",
+      "status": "done",
+      "step": null
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 24,
+      "event_type": "token",
+      "delta": "“国外出差员工”，并未明确限定为上海办公室；如果上海办公室对国外出差另有本地补充规定，建议再确认一下。",
+      "phase": "draft",
+      "batched": true
+    },
+    {
+      "run_id": "dd3db383-4480-4195-a4ee-b161509adf51",
+      "seq": 25,
+      "event_type": "run_finished",
+      "status": "completed",
+      "result": {
+        "answer": "国外出差报销规则；适用范围：国外出差员工。；员工应在费用发生后 10 天内提交国外差旅报销申请。",
+        "status": "completed",
+        "citations": [
+          {
+            "document_id": "bd096359-4ed2-416f-b267-08265895f350",
+            "title": "overseas-policy",
+            "version_date": "2026-01-01",
+            "quote": "# 国外出差报销规则\n\n适用范围：国外出差员工。\n\n员工应在费用发生后 10 天内提交国外差旅报销申请。",
+            "chunk_id": "867a0d26-14ce-4c90-b18b-08f1162cd7be"
+          }
+        ],
+        "gaps": [],
+        "question_to_user": null,
+        "trace": [
+          {
+            "step": 0,
+            "action": "query_rewrite",
+            "arguments": {
+              "original": "那国外出差呢?",
+              "rewritten": "上海办公室国外出差报销期限是多久"
+            },
+            "result": {
+              "reason": "llm_context_follow_up",
+              "method": "llm",
+              "fallback": null
+            },
+            "mode": "real",
+            "next_action": "search_documents",
+            "decision_summary": "原问题依赖上下文，已补全为可独立检索的 query。"
+          },
+          {
+            "step": 1,
+            "action": "search_documents",
+            "arguments": {
+              "query": "上海办公室 国外出差 报销期限"
+            },
+            "mode": "real",
+            "observation": {
+              "ok": true,
+              "summary": "1 个候选 · jieba_bm25",
+              "document_ids": [
+                "bd096359-4ed2-416f-b267-08265895f350"
+              ],
+              "security_warnings": []
+            },
+            "next_action": "read_document",
+            "decision_summary": "检索到候选资料，下一步读取原文以获得可引用证据。",
+            "tool_calls_cumulative": 1,
+            "remaining_tool_calls": 7
+          },
+          {
+            "step": 2,
+            "action": "read_document",
+            "arguments": {
+              "document_id": "bd096359-4ed2-416f-b267-08265895f350",
+              "query": "国外出差 报销期限"
+            },
+            "mode": "real",
+            "observation": {
+              "ok": true,
+              "summary": "读取 1 个原文块",
+              "document_ids": [
+                "bd096359-4ed2-416f-b267-08265895f350"
+              ],
+              "security_warnings": []
+            },
+            "next_action": "finish",
+            "decision_summary": "已取得原文证据，结束工具调用并进入答案与引用校验。",
+            "tool_calls_cumulative": 2,
+            "remaining_tool_calls": 6
+          },
+          {
+            "step": 3,
+            "action": "finish",
+            "arguments": {},
+            "mode": "real",
+            "next_action": null,
+            "decision_summary": "当前证据已满足结束条件。"
+          }
+        ],
+        "mode": "real",
+        "metrics": {
+          "duration_ms": 7522.61,
+          "model": "deepseek-v4-flash",
+          "mode": "real",
+          "steps": 3,
+          "tool_calls": 2,
+          "retrieval_calls": 1,
+          "read_calls": 1,
+          "model_calls": 3,
+          "usage": {
+            "input_tokens": 3164,
+            "output_tokens": 192,
+            "total_tokens": 3356
+          },
+          "query_rewrite_method": "llm",
+          "query_rewrite_fallback": null,
+          "operation_guide_calls": 0,
+          "request_id": "34e5e5cc080e4dfb9f0447eb5fcbb4c7"
+        }
+      }
+    }
+  ]
+}

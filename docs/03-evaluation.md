@@ -6,7 +6,7 @@
 uv run pytest -q
 ```
 
-当前结果：`67 passed`。覆盖上传解析、表格/图片、智能分块、query 改写、检索融合、冲突处理、范围消歧、无关问题隔离、内置操作指南、引用、SSE、token 批量持久化、幂等、取消和运行指标。
+当前结果：`68 passed`。覆盖上传解析、表格/图片、智能分块、query 改写、检索融合、冲突处理、范围消歧、无关问题隔离、内置操作指南、引用、SSE、token 批量持久化、幂等、取消和运行指标。
 
 ## 2. 检索评测
 
@@ -40,10 +40,12 @@ uv run knowledge-agent-eval --db runtime/knowledge.db --include-agent
 | 场景 | 文件 | 结果 |
 | --- | --- | --- |
 | 正常回答 | `examples/normal/trace.json` | `completed`，3 个 Agent 步骤，3 次模型调用 |
+| 相似问法与冲突 | `examples/conflict/trace.json` | 相似 query 命中多份制度，返回 `needs_clarification` |
+| 上下文追问 | `examples/follow_up/trace.json` | LLM 改写为独立 query，重新检索并引用 |
 | 资料不足 | `examples/insufficient/trace.json` | `not_found`，没有伪造答案 |
 | 工具失败 | `examples/tool_error/trace.json` | 坏图片解析失败，`tool_error` |
 
-前两组使用真实 OpenAI-compatible 模型运行，包含 SSE token、阶段事件、工具参数、工具观察、最终状态和 metrics。第三组使用受控坏图片触发真实解析失败。
+除工具失败外，其余场景均使用真实 OpenAI-compatible 模型运行，包含 SSE token、阶段事件、工具参数、工具观察、`next_action`、`decision_summary`、累计工具调用和最终状态。工具失败组使用受控坏图片触发真实解析失败。
 
 ## 4. 指标定义
 

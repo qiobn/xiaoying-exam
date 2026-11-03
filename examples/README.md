@@ -1,6 +1,8 @@
 # 示例证据
 
 - `normal/trace.json`：真实模型正常检索、读取原文并回答。
+- `conflict/trace.json`：相似问法检索到多份冲突制度，返回 `needs_clarification`。
+- `follow_up/trace.json`：上下文追问经 LLM query rewrite 后重新检索并回答。
 - `insufficient/trace.json`：真实模型确认知识库资料不足，返回 `not_found`。
 - `tool_error/trace.json`：坏图片解析失败，返回 `tool_error`。
 - `evaluation-report.json`：20 条检索用例的 Recall@5、MRR 和逐案例结果。

@@ -25,7 +25,11 @@
           "summary": "0 个候选 · jieba_bm25 · 回退：no_lexical_overlap",
           "document_ids": [],
           "security_warnings": []
-        }
+        },
+        "next_action": "search_documents",
+        "decision_summary": "当前检索没有足够候选，调整 query 后补充检索。",
+        "tool_calls_cumulative": 1,
+        "remaining_tool_calls": 7
       },
       {
         "step": 2,
@@ -40,13 +44,19 @@
           "summary": "0 个候选 · jieba_bm25 · 回退：no_lexical_overlap",
           "document_ids": [],
           "security_warnings": []
-        }
+        },
+        "next_action": "finish",
+        "decision_summary": "检索没有可用候选，结束工具循环并报告资料不足。",
+        "tool_calls_cumulative": 2,
+        "remaining_tool_calls": 6
       },
       {
         "step": 3,
         "action": "finish",
         "arguments": {},
-        "mode": "real"
+        "mode": "real",
+        "next_action": null,
+        "decision_summary": "当前证据已满足结束条件。"
       }
     ],
     "mode": "real",
@@ -105,7 +115,11 @@
         "summary": "0 个候选 · jieba_bm25 · 回退：no_lexical_overlap",
         "document_ids": [],
         "security_warnings": []
-      }
+      },
+      "next_action": "search_documents",
+      "decision_summary": "当前检索没有足够候选，调整 query 后补充检索。",
+      "tool_calls_cumulative": 1,
+      "remaining_tool_calls": 7
     },
     {
       "step": 2,
@@ -120,13 +134,19 @@
         "summary": "0 个候选 · jieba_bm25 · 回退：no_lexical_overlap",
         "document_ids": [],
         "security_warnings": []
-      }
+      },
+      "next_action": "finish",
+      "decision_summary": "检索没有可用候选，结束工具循环并报告资料不足。",
+      "tool_calls_cumulative": 2,
+      "remaining_tool_calls": 6
     },
     {
       "step": 3,
       "action": "finish",
       "arguments": {},
-      "mode": "real"
+      "mode": "real",
+      "next_action": null,
+      "decision_summary": "当前证据已满足结束条件。"
     }
   ],
   "events": [
