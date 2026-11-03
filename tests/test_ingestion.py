@@ -69,6 +69,44 @@ def test_retrieval_rejects_generic_partial_overlap_for_specific_follow_up(tmp_pa
     assert outcome.diagnostics["required_terms_filtered"] is True
 
 
+def test_image_intent_query_returns_visual_chunk_without_lexical_overlap(tmp_path):
+    store = Store(tmp_path / "image-intent.sqlite")
+    kb = store.create_kb("image-intent")
+    text = "[图片 card.jpg]\n图片描述：上海应用技术大学研究生学生卡。"
+    store.add_document(
+        kb["id"], "card.jpg", "学生卡照片", "2026-01-01", "当前会话附件",
+        text, sha256(text.encode()),
+    )
+    build_kb(store, kb["id"], Settings(db_path=tmp_path / "image-intent.sqlite"))
+
+    hits = search(store, kb["id"], "这张图是什么内容？", settings=Settings(db_path=tmp_path / "image-intent.sqlite"))
+
+    assert hits
+    assert "学生卡" in hits[0]["text"]
+
+
+def test_attachment_scope_falls_back_to_scoped_chunk_on_generic_query(tmp_path):
+    store = Store(tmp_path / "attachment-scope.sqlite")
+    kb = store.create_kb("attachment-scope")
+    text = "附件正文：项目计划分为需求、开发和验收三个阶段。"
+    doc_id, _created = store.add_document(
+        kb["id"], "plan.md", "项目计划", "2026-01-01", "当前会话附件",
+        text, sha256(text.encode()),
+    )
+    build_kb(store, kb["id"], Settings(db_path=tmp_path / "attachment-scope.sqlite"))
+
+    hits = search(
+        store,
+        kb["id"],
+        "请总结附件",
+        document_ids=[doc_id],
+        settings=Settings(db_path=tmp_path / "attachment-scope.sqlite"),
+    )
+
+    assert len(hits) == 1
+    assert "三个阶段" in hits[0]["text"]
+
+
 def test_chunk_offsets_preserve_original_crlf_positions():
     text = "  第一段。\r\n第二段报销期限。  "
     chunks = split_chunks(text, 100, 10)

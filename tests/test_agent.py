@@ -89,3 +89,24 @@ def test_explicit_location_scope_resolves_policy_conflict(tmp_path):
 
     assert result.status == "completed"
     assert {citation["title"] for citation in result.citations} == {"上海地区报销补充规则"}
+
+
+def test_same_grade_values_from_table_and_prose_are_not_false_conflict(tmp_path):
+    store = Store(tmp_path / "same-grade.sqlite")
+    kb = store.create_kb("same-grade")
+    prose = "深圳 P5 员工住宿上限为 600 元/晚，P6 员工住宿上限为 900 元/晚。"
+    table = "| 城市 | 职级 | 住宿上限 |\n| --- | --- | --- |\n| 深圳 | P5 | 600 |\n| 深圳 | P6 | 900 |\n| 上海 | P6 | 800 |"
+    store.add_document(kb["id"], "rules.md", "深圳差旅规则", "2026-01-01", "深圳员工", prose, sha256(b"prose"))
+    store.add_document(kb["id"], "table.md", "住宿标准表", "2026-01-01", "深圳员工", table, sha256(b"table"))
+    build_kb(store, kb["id"], Settings(db_path=tmp_path / "same-grade.sqlite"))
+
+    result = run_agent(
+        store,
+        kb["id"],
+        "深圳P6住宿上限是多少？",
+        [],
+        Settings(db_path=tmp_path / "same-grade.sqlite"),
+    )
+
+    assert result.status == "completed"
+    assert "900" in result.answer

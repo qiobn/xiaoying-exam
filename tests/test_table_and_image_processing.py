@@ -73,3 +73,32 @@ def test_image_parser_combines_vision_description_and_ocr(monkeypatch):
     assert result.metadata["image_count"] == 1
     assert "柱状图展示上海和北京的报销额度" in result.text
     assert "上海 500" in result.text
+
+
+def test_image_parser_uses_vision_when_ocr_is_unavailable(monkeypatch):
+    class FakeChat:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            return AIMessage(content="学生卡照片，包含姓名、学号和学院。")
+
+    monkeypatch.setattr("langchain_openai.ChatOpenAI", FakeChat)
+    monkeypatch.setattr(
+        "knowledge_agent.document_parsers._ocr_image",
+        lambda data, settings: (_ for _ in ()).throw(ValueError("Tesseract missing")),
+    )
+    settings = Settings(
+        mode="real",
+        api_key="test-key",
+        vision_enabled=True,
+        vision_model="vision-test",
+    )
+
+    result = parse_attachment("card.jpg", b"fake-image", settings)
+
+    assert result.parser == "Vision"
+    assert result.method == "vision"
+    assert result.metadata["vision_used"] is True
+    assert result.metadata["ocr_used"] is False
+    assert result.warnings == []

@@ -1000,13 +1000,25 @@ function App() {
                             )}
                             <details>
                               <summary>
-                                处理与检索日志 · {m.events?.length || 0} 条
+                                处理与检索日志 ·{" "}
+                                {(m.events || []).filter(
+                                  (event) =>
+                                    event.event_type !== "token" &&
+                                    event.event_type !== "agent_stage",
+                                ).length}
+                                条
                               </summary>
-                              {(m.events || []).map((event, j) => (
-                                <pre key={`event-${j}`}>
-                                  {JSON.stringify(event, null, 2)}
-                                </pre>
-                              ))}
+                              {(m.events || [])
+                                .filter(
+                                  (event) =>
+                                    event.event_type !== "token" &&
+                                    event.event_type !== "agent_stage",
+                                )
+                                .map((event, j) => (
+                                  <pre key={`event-${j}`}>
+                                    {JSON.stringify(event, null, 2)}
+                                  </pre>
+                                ))}
                             </details>
                             <details>
                               <summary>

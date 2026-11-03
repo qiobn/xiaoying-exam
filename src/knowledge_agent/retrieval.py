@@ -30,6 +30,40 @@ def _tokens(text: str) -> list[str]:
     return sorted(terms(text))
 
 
+def _direct_hits(
+    rows,
+    indices: list[int],
+    top_k: int,
+    *,
+    method: str,
+    fallback: str,
+):
+    hits = []
+    for index in indices[: max(1, min(top_k, 10))]:
+        row = rows[index]
+        hits.append({
+            "chunk_id": row["id"],
+            "document_id": row["document_id"],
+            "title": row["title"],
+            "version_date": row["version_date"],
+            "scope": row["scope"],
+            "section_path": row.get("section_path", ""),
+            "text": row["text"],
+            "score": 0.0,
+            "bm25_score": 0.0,
+            "dense_score": 0.0,
+            "fusion_score": 0.0,
+            "rerank_score": None,
+            "matched_terms": [],
+        })
+    return hits, {
+        "method": method,
+        "fallback": fallback,
+        "dense_available": False,
+        "rerank": None,
+    }
+
+
 def search_with_diagnostics(store, kb_id: str, query: str, top_k: int = 5, document_ids: list[str] | None = None, settings=None):
     """Hybrid BM25+dense retrieval with rerank and explicit lexical fallback diagnostics."""
     query = query.strip()
@@ -40,7 +74,31 @@ def search_with_diagnostics(store, kb_id: str, query: str, top_k: int = 5, docum
         allowed = set(document_ids)
         rows = [row for row in rows if row["document_id"] in allowed]
     query_tokens = _tokens(query)
-    if not query_tokens or not rows:
+    if not rows:
+        return [], {"method": "jieba_bm25", "fallback": "no_terms_or_chunks"}
+    image_intent = bool(re.search(r"(?:图片|照片|截图|图中|这张图)", query))
+    if not query_tokens:
+        if image_intent:
+            indices = [
+                index for index, row in enumerate(rows)
+                if "[图片" in row.get("text", "") or "图片描述：" in row.get("text", "")
+            ]
+            if indices:
+                return _direct_hits(
+                    rows,
+                    indices,
+                    top_k,
+                    method="image_intent",
+                    fallback="image_chunk_fallback",
+                )
+        if document_ids:
+            return _direct_hits(
+                rows,
+                list(range(len(rows))),
+                top_k,
+                method="attachment_scope",
+                fallback="attachment_scope_fallback",
+            )
         return [], {"method": "jieba_bm25", "fallback": "no_terms_or_chunks"}
 
     corpus = [_tokens(row.get("retrieval_text") or " ".join((row["title"], row["scope"], row["text"]))) for row in rows]
@@ -54,6 +112,28 @@ def search_with_diagnostics(store, kb_id: str, query: str, top_k: int = 5, docum
         coverage = len(overlap) / max(1, len(query_tokens))
         lexical_hits.append((index, raw_score + coverage, overlap))
     exact_tokens = re.findall(r"\b(?:[a-z]{1,8}[-_]?[0-9]{2,}|[0-9]{4,})\b", query.lower())
+    if not lexical_hits:
+        if image_intent:
+            indices = [
+                index for index, row in enumerate(rows)
+                if "[图片" in row.get("text", "") or "图片描述：" in row.get("text", "")
+            ]
+            if indices:
+                return _direct_hits(
+                    rows,
+                    indices,
+                    top_k,
+                    method="image_intent",
+                    fallback="image_chunk_fallback",
+                )
+        if document_ids:
+            return _direct_hits(
+                rows,
+                list(range(len(rows))),
+                top_k,
+                method="attachment_scope",
+                fallback="attachment_scope_fallback",
+            )
     if not lexical_hits and (settings is None or settings.embedding_backend == "none"):
         return [], {"method": "jieba_bm25", "fallback": "no_lexical_overlap"}
 
