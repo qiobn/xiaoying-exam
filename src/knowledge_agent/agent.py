@@ -20,9 +20,10 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
 from .config import Settings
+from .operation_guide import OperationGuideService
 from .persistence import Store
 from .prompt_guard import PromptGuard
-from .prompts import CHAT_PROMPT, PROMPT_GUARD_ANSWER, SYSTEM_PROMPT
+from .prompts import CHAT_PROMPT, OPERATION_PROMPT, PROMPT_GUARD_ANSWER, SYSTEM_PROMPT
 from .query_rewrite import QueryRewriteService, RewriteResult
 from .rag import KnowledgeRetrievalService
 from .retrieval import terms
@@ -70,6 +71,26 @@ class AgentState(TypedDict, total=False):
     model_calls: int
     usage: dict
     streamed_text: str
+    retrieval_kind: str
+    operation_context: str
+
+
+_ANSWER_METADATA_LINE = re.compile(
+    r"^\s*(?:来源|引用来源|参考资料|文档|依据)\s*[:：]",
+    re.IGNORECASE,
+)
+
+
+def _strip_answer_metadata(answer: str) -> str:
+    lines = [
+        line for line in str(answer or "").splitlines()
+        if not _ANSWER_METADATA_LINE.match(line)
+    ]
+    value = "\n".join(lines).strip()
+    value = re.sub(r"^\s*根据(?:知识库)?原文\s*[:：]\s*", "", value)
+    value = value.replace("**", "")
+    value = re.sub(r"^\s*#{1,6}\s+", "", value, flags=re.MULTILINE)
+    return value.strip()
 
 
 def _emit_stage(on_event, title: str, detail: str, *, status: str = "done", step: int | None = None):
@@ -178,11 +199,26 @@ def make_tools(
             return json.dumps({"ok": False, "error_code": "document_not_found", "document_id": document_id}, ensure_ascii=False)
         chunks = store.chunks(document_id)
         query_terms = terms(query)
-        matched = [
-            chunk for chunk in chunks
-            if query_terms & terms(chunk.get("retrieval_text") or chunk["text"])
+        scored = [
+            (
+                len(query_terms & terms(chunk.get("retrieval_text") or chunk["text"])),
+                chunk,
+            )
+            for chunk in chunks
         ]
-        chosen = matched[:3] or chunks[:2]
+        matched = sorted(
+            ((score, chunk) for score, chunk in scored if score > 0),
+            key=lambda item: (-item[0], item[1].get("ordinal", 0)),
+        )
+        if matched:
+            best = matched[0][0]
+            threshold = max(1, best // 2)
+            chosen = [
+                chunk for score, chunk in matched
+                if score >= threshold
+            ][:2]
+        else:
+            chosen = chunks[:1]
         warnings = sorted({
             warning
             for chunk in chosen
@@ -328,8 +364,37 @@ def _build_graph(
         step = state.get("step", 0) + 1
         messages = state.get("messages", [])
         needs_retrieval = state.get("needs_retrieval", True)
+        retrieval_kind = state.get("retrieval_kind", "knowledge")
         streamed = ""
-        if not needs_retrieval:
+        if retrieval_kind == "operation":
+            _emit_stage(
+                on_event,
+                "操作指南",
+                "使用内置操作知识生成执行指引",
+                step=step,
+            )
+            guide = state.get("operation_context", "")
+            if settings.mode == "real":
+                if not settings.api_key:
+                    raise ValueError("KNOWLEDGE_AGENT_MODE=real 时必须配置 OPENAI_API_KEY")
+                from langchain_openai import ChatOpenAI
+
+                response, streamed = _invoke_streaming(
+                    ChatOpenAI(**chat_model_options(settings)),
+                    [
+                        SystemMessage(content=OPERATION_PROMPT.format(guide=guide)),
+                        HumanMessage(content=state["question"]),
+                    ],
+                    on_event,
+                    should_cancel,
+                    emit_tokens=True,
+                    token_phase="answer",
+                )
+            else:
+                response = AIMessage(content=f"操作指引：\n{guide}")
+                streamed = str(response.content)
+                _emit_mock_tokens(streamed, on_event, "answer")
+        elif not needs_retrieval:
             _emit_stage(
                 on_event,
                 "对话路由",
@@ -472,12 +537,35 @@ def _evidence(messages: list[BaseMessage]):
     return reads, citations
 
 
+def _natural_fallback(query_topics: set[str], reads: list[dict]) -> str:
+    candidates = []
+    for read in reads:
+        for chunk in read.get("chunks", []):
+            for sentence in re.split(r"(?<=[。！？!?])\s*|\n+", chunk.get("text", "")):
+                value = sentence.strip()
+                if not value:
+                    continue
+                overlap = len(query_topics & terms(value))
+                candidates.append((overlap, -len(value), value))
+    if not candidates:
+        return "检索到的资料不足以形成可靠回答。"
+    candidates.sort(reverse=True)
+    unique = []
+    for _overlap, _negative_length, sentence in candidates:
+        if sentence not in unique:
+            unique.append(sentence)
+        if len(unique) >= 3:
+            break
+    return "；".join(unique)
+
+
 def _assemble(
     question: str,
     messages: list[BaseMessage],
     trace: list[dict],
     settings: Settings,
     needs_retrieval: bool,
+    retrieval_kind: str = "knowledge",
 ) -> AgentResult:
     final_message = next(
         (
@@ -490,8 +578,11 @@ def _assemble(
         ),
         None,
     )
+    if retrieval_kind == "operation":
+        answer = _strip_answer_metadata(str(final_message.content)) if final_message else "当前没有找到对应的操作说明。"
+        return AgentResult(answer, "completed", [], [], None, trace, settings.mode)
     if not needs_retrieval:
-        answer = str(final_message.content).strip() if final_message else "你好，我是“知问”企业知识助手。"
+        answer = _strip_answer_metadata(str(final_message.content)) if final_message else "你好，我是“知问”企业知识助手。"
         return AgentResult(answer, "completed", [], [], None, trace, settings.mode)
 
     reads, citations = _evidence(messages)
@@ -537,10 +628,12 @@ def _assemble(
     conflict = len(relevant_reads) > 1 and len(numeric_facts) > 1
     if conflict:
         return AgentResult("检索到多份制度原文，当前证据存在可能冲突，不能在缺少适用范围或优先级时擅自选择。", "needs_clarification", citations, ["需要确认适用地区、员工范围或制度优先级。"], "请确认本问题适用的地区/员工范围，或指定优先制度。", trace, settings.mode)
-    answer = str(final_message.content).strip() if final_message else "根据知识库原文：" + "；".join(dict.fromkeys(values))
+    answer = _strip_answer_metadata(str(final_message.content)) if final_message else _natural_fallback(query_topics, reads)
+    if not answer:
+        answer = _natural_fallback(query_topics, reads)
     cited_text = " ".join(values)
     if any(number not in cited_text for number in re.findall(r"\d+(?:\.\d+)?", answer)):
-        answer = "根据知识库原文：" + "；".join(dict.fromkeys(values))
+        answer = _natural_fallback(query_topics, reads)
     return AgentResult(answer, "completed", citations, [], None, trace, settings.mode)
 
 
@@ -590,17 +683,66 @@ def run_agent(
             })
 
     route = RetrievalGate().decide(question, filtered_history, bool(document_ids))
+    if route.kind == "out_of_scope":
+        answer = (
+            "我主要负责企业知识库问答和本系统操作指引，"
+            "不处理天气、新闻、娱乐等与知识库无关的问题。"
+            "你可以问我制度、流程、产品资料，或上传、检索、设置等系统使用方法。"
+        )
+        trace = [{
+            "step": 0,
+            "action": "scope_guard",
+            "arguments": {"reason": route.reason, "kind": route.kind},
+            "mode": settings.mode,
+        }]
+        _emit_stage(on_event, "范围判断", "问题超出企业知识库与操作指引范围", step=0)
+        _emit_mock_tokens(answer, on_event, "answer")
+        _emit_stage(on_event, "回答完成", "状态：out_of_scope")
+        result = AgentResult(answer, "out_of_scope", [], [], None, trace, settings.mode)
+        result.metrics = {
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "model": settings.model,
+            "mode": settings.mode,
+            "steps": 0,
+            "tool_calls": 0,
+            "retrieval_calls": 0,
+            "read_calls": 0,
+            "model_calls": 0,
+            "usage": {},
+            "query_rewrite_method": "none",
+            "scope_reason": route.reason,
+        }
+        return result
+
     rewriter = QueryRewriteService(settings)
     rewrite = (
         rewriter.rewrite(question, filtered_history)
-        if route.needed and settings.query_rewrite_enabled
+        if route.kind != "operation" and route.needed and settings.query_rewrite_enabled
         else RewriteResult(question, False)
     )
+    operation_context = ""
+    if route.kind == "operation":
+        guide_query = question
+        if filtered_history and filtered_history[-1].get("role") == "user":
+            guide_query = f"{filtered_history[-1]['content']} {question}"
+        guide_entries = OperationGuideService().search(guide_query)
+        operation_context = OperationGuideService.render(guide_entries)
+        trace.append({
+            "step": 0,
+            "action": "operation_guide",
+            "arguments": {"query": guide_query},
+            "result": {
+                "guide_ids": [entry.id for entry in guide_entries],
+                "titles": [entry.title for entry in guide_entries],
+            },
+            "mode": settings.mode,
+        })
+        _emit_stage(on_event, "操作指南", "已匹配内置操作知识", step=0)
     if not route.needed:
         trace.append({
             "step": 0,
             "action": "retrieval_route",
-            "arguments": {"needed": False, "reason": route.reason},
+            "arguments": {"needed": False, "reason": route.reason, "kind": route.kind},
             "mode": settings.mode,
         })
         _emit_stage(on_event, "检索路由", "普通交流，无需知识库", step=0)
@@ -619,7 +761,12 @@ def run_agent(
             step=0,
         )
     else:
-        _emit_stage(on_event, "检索路由", f"需要知识库：{route.reason}", step=0)
+        _emit_stage(
+            on_event,
+            "检索路由",
+            f"{'操作指引' if route.kind == 'operation' else '知识库'}：{route.reason}",
+            step=0,
+        )
 
     tools = make_tools(
         store,
@@ -653,6 +800,8 @@ def run_agent(
         "model_calls": 0,
         "usage": {},
         "streamed_text": "",
+        "retrieval_kind": route.kind,
+        "operation_context": operation_context,
     }
     try:
         result = state
@@ -699,6 +848,7 @@ def run_agent(
         result.get("trace", []),
         settings,
         route.needed,
+        route.kind,
     )
     last_action = result.get("trace", [{}])[-1].get("action") if result.get("trace") else None
     if result.get("step", 0) >= settings.max_steps and last_action != "finish" and final.status != "tool_error":
@@ -723,5 +873,8 @@ def run_agent(
         "usage": result.get("usage", {}),
         "query_rewrite_method": rewrite.method if rewrite.applied else "none",
         "query_rewrite_fallback": rewriter.last_diagnostics.get("fallback"),
+        "operation_guide_calls": sum(
+            1 for item in final.trace if item.get("action") == "operation_guide"
+        ),
     }
     return final

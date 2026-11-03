@@ -98,7 +98,11 @@ python run.py
 - **表格与图表**：`document_parsers.py` 将表格转为 Markdown 并保持表头与数据行原子分块；视觉模型提取图表标题、坐标轴、图例、关键数值和 OCR 文本，图片描述进入检索文本。服务端记录 `table_count/image_count`，分块记录 `chunk_method`，用于界面核对。
 - **混合检索与重排**：`retrieval.py` 使用 BM25、可选 dense embedding、RRF 和精确 token 路由；`KnowledgeRetrievalService` 是 Agent 工具与检索调试 API 的共用入口。Rerank 失败自动回退第一阶段候选。
 - **可审计轨迹**：Trace 记录 `retrieval_route`、`query_rewrite`、`search_documents`、`read_document`、`finish` 或 `guardrail`，不记录隐藏思维过程。
+- **内置操作知识**：`operation_guide.py` 提供不进入用户知识库列表的隐藏操作索引；上传、检索、设置、取消运行等问题由该索引给出操作步骤，不产生用户文档引用。
+- **范围隔离**：天气、新闻、娱乐等明确无关问题返回 `out_of_scope`，与“知识库没有检索到证据”的 `not_found` 分开。
+- **自然回答**：最终气泡只显示自然语言结论；来源行、Markdown 标题/加粗和工具元信息会被清理，引用单独放入折叠的检索溯源。
 - **实时交互**：SSE 发布 `agent_stage` 和 `token`。知识类回答先作为 draft 流式展示，引用与冲突校验后由最终结果替换；普通对话直接流式输出。
+- **折叠展示**：最终状态保留在卡片顶部，执行过程、检索溯源、处理日志和运行指标默认折叠，不压过自然对话。
 - **运行控制**：`Idempotency-Key` 防止重复 run，`POST /api/runs/{id}/cancel` 提供协作式取消，metrics 记录耗时、模型调用、工具调用、tokens 和 request_id。
 
 ## CLI

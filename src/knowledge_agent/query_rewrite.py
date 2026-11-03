@@ -9,12 +9,22 @@ from pydantic import BaseModel, Field, ValidationError
 
 from .config import Settings
 
-_FOLLOW_UP = re.compile(r"^(?:那|这个|那个|它|其|上述|刚才|还有|另外)|(?:呢|如何|怎么样)[？?]?$")
+_FOLLOW_UP_START = re.compile(r"^(?:那|这个|那个|它|其|上述|刚才|还有|另外|这些|该)")
+_FOLLOW_UP_ONLY = re.compile(r"^(?:呢|如何|怎么样)[？?]?$")
 _STOPWORDS = {
     "什么", "怎么", "怎样", "如何", "多久", "多少", "是否", "可以", "需要", "应该",
     "请问", "一下", "这个", "那个", "这些", "那些", "我们", "你们", "他们", "以及",
     "还有", "但是", "如果", "因为", "所以", "关于", "相关", "进行", "一个", "有没",
 }
+
+
+def is_contextual_follow_up(text: str) -> bool:
+    value = (text or "").strip()
+    if not value:
+        return False
+    if _FOLLOW_UP_START.search(value):
+        return True
+    return len(value) <= 8 and bool(_FOLLOW_UP_ONLY.fullmatch(value))
 
 
 @dataclass(frozen=True)
@@ -38,7 +48,7 @@ class ConversationQueryRewriter:
         current = (question or "").strip()
         if not current or not history:
             return RewriteResult(current, False)
-        if not _FOLLOW_UP.search(current):
+        if not is_contextual_follow_up(current):
             return RewriteResult(current, False)
 
         previous = next(
@@ -99,7 +109,7 @@ class QueryRewriteService:
             self.settings.mode != "real"
             or not self.settings.api_key
             or not history
-            or not _FOLLOW_UP.search(question)
+            or not is_contextual_follow_up(question)
         ):
             self.last_diagnostics = {"method": "rule", "fallback": None}
             return rule_result

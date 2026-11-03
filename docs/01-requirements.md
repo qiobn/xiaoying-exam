@@ -39,6 +39,7 @@
 | `completed` | 已形成有效回答，或普通对话完成 |
 | `needs_clarification` | 证据冲突或缺少必要前提 |
 | `not_found` | 当前知识库没有足够证据 |
+| `out_of_scope` | 问题明显超出企业知识库与系统操作范围 |
 | `tool_error` | 工具、解析或模型关键步骤失败 |
 | `step_limit` | 达到步数或工具预算 |
 | `cancelled` | 用户主动取消 |
