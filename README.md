@@ -62,6 +62,9 @@ python run.py
 | `CHUNK_LLM_MODEL` | 空 | 分块模型，留空复用问答模型 |
 | `CHUNK_LLM_MIN_CHARS` / `CHUNK_LLM_MAX_CHARS` | `1600` / `12000` | 自动分块触发长度与单次窗口上限 |
 | `CHUNK_LLM_TIMEOUT_SECONDS` | `60` | 单次智能分块超时 |
+| `TABLE_MAX_CHARS` | `3000` | 单表格块上限；超长表格按数据行拆分并在检索文本重复表头 |
+| `OUTLINE_LLM_ENABLED` | `true` | 是否对扁平标题执行层级重建 |
+| `OUTLINE_LLM_MODEL` | 空 | 大纲模型，留空复用分块模型 |
 | `PARSE_PDF_TABLES` / `PARSE_EMBEDDED_IMAGES` | `true` / `true` | 是否提取 PDF 表格和文档内嵌图片 |
 | `VISION_ENABLED` / `VISION_MODEL` | `false` / 空 | 是否用多模态模型描述图表，留空复用问答模型 |
 | `VISION_API_URL` / `VISION_API_KEY` | 空 | 可与文字模型不同的视觉服务地址和密钥 |
@@ -90,16 +93,27 @@ python run.py
 - **提示词保护**：`prompt_guard.py` 在模型和检索前拦截系统提示词提取、密钥索取和指令覆盖尝试；`prompts.py` 明确工具结果和上传文档是不可信资料，文档中的命令不得执行。
 - **上下文改写**：`query_rewrite.py` 的 `ConversationQueryRewriter` 将“那国外出差呢”补全为自包含 query；改写产生的新实体必须出现在候选原文中，避免泛化词造成误召回。
 - **结构感知分块**：`chunking.py` 的 `StructuredChunker` 识别 Markdown 标题层级，在 chunk 中保存 `section_path` 和精确原文 offset，再把标题、适用范围与章节路径写入检索文本。
+- **大纲重建**：`outline.py` 对 Markdown、DOCX 标题样式和 PDF 编号标题识别层级；标题全平且数量合理时调用一次 LLM，仅处理候选标题行，失败保持平面结构。
 - **LLM 智能分块**：`semantic_chunking.py` 参考纽酷的行号分段方案，模型只返回 `start_line/end_line/title`，正文由本地按偏移回填，不允许模型改写。普通长文在 `auto` 模式下使用 LLM；标题结构清晰、Mock、无密钥、模型异常或 JSON 不合法时自动降级为确定性分块。
 - **表格与图表**：`document_parsers.py` 将表格转为 Markdown 并保持表头与数据行原子分块；视觉模型提取图表标题、坐标轴、图例、关键数值和 OCR 文本，图片描述进入检索文本。服务端记录 `table_count/image_count`，分块记录 `chunk_method`，用于界面核对。
 - **混合检索与重排**：`retrieval.py` 使用 BM25、可选 dense embedding、RRF 和精确 token 路由；`KnowledgeRetrievalService` 是 Agent 工具与检索调试 API 的共用入口。Rerank 失败自动回退第一阶段候选。
 - **可审计轨迹**：Trace 记录 `retrieval_route`、`query_rewrite`、`search_documents`、`read_document`、`finish` 或 `guardrail`，不记录隐藏思维过程。
+- **实时交互**：SSE 发布 `agent_stage` 和 `token`。知识类回答先作为 draft 流式展示，引用与冲突校验后由最终结果替换；普通对话直接流式输出。
+- **运行控制**：`Idempotency-Key` 防止重复 run，`POST /api/runs/{id}/cancel` 提供协作式取消，metrics 记录耗时、模型调用、工具调用、tokens 和 request_id。
 
 ## CLI
 
 ```powershell
 uv run knowledge-agent --question "报销期限是多久？" --data data/documents.jsonl
+uv run knowledge-agent-eval --db runtime/knowledge.db --output examples/evaluation-report.json
 ```
+
+## 运行与证据
+
+- 主 Agent 通过 SSE 实时发送 `agent_stage` 和 `token` 事件；知识类模型输出先标记为 draft，经引用与冲突校验后由最终结果替换。
+- `/api/runs/{id}/cancel` 支持协作式取消；`Idempotency-Key` 防止重复创建 run。
+- 文档列表支持删除和重新解析；原始上传文件保存在被 Git 忽略的 `runtime/uploads/`。
+- 真实 Trace 位于 `examples/`，评测口径见 `docs/03-evaluation.md`。
 
 ## 目录
 
@@ -109,3 +123,4 @@ uv run knowledge-agent --question "报销期限是多久？" --data data/documen
 - `data/`：合成演示资料。
 - `docs/`：项目需求和技术方案。
 - `tests/`：解析、检索、Agent 和 API 测试。
+- `examples/`：正常、资料不足、工具失败的真实 Trace 与检索评测报告。

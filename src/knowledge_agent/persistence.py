@@ -38,7 +38,8 @@ class Store:
                 scope TEXT NOT NULL, content TEXT NOT NULL, status TEXT NOT NULL,
                 sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
                 parser_name TEXT NOT NULL DEFAULT '', parser_method TEXT NOT NULL DEFAULT '',
-                parse_warnings TEXT NOT NULL DEFAULT '[]', parse_metadata TEXT NOT NULL DEFAULT '{}');
+                parse_warnings TEXT NOT NULL DEFAULT '[]', parse_metadata TEXT NOT NULL DEFAULT '{}',
+                source_path TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '');
               CREATE TABLE IF NOT EXISTS chunks(
                 id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
                 ordinal INTEGER NOT NULL, text TEXT NOT NULL, start_offset INTEGER NOT NULL,
@@ -50,7 +51,9 @@ class Store:
               CREATE TABLE IF NOT EXISTS runs(
                 id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
                 question TEXT NOT NULL, status TEXT NOT NULL, result_json TEXT, created_at TEXT NOT NULL,
-                attachments_json TEXT NOT NULL DEFAULT '[]');
+                attachments_json TEXT NOT NULL DEFAULT '[]', idempotency_key TEXT NOT NULL DEFAULT '',
+                request_id TEXT NOT NULL DEFAULT '', cancel_requested INTEGER NOT NULL DEFAULT 0,
+                metrics_json TEXT NOT NULL DEFAULT '{}', finished_at TEXT NOT NULL DEFAULT '');
               CREATE TABLE IF NOT EXISTS events(
                 run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE, seq INTEGER NOT NULL,
                 event_type TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL,
@@ -76,12 +79,26 @@ class Store:
                 ("parser_method", "TEXT NOT NULL DEFAULT ''"),
                 ("parse_warnings", "TEXT NOT NULL DEFAULT '[]'"),
                 ("parse_metadata", "TEXT NOT NULL DEFAULT '{}'"),
+                ("source_path", "TEXT NOT NULL DEFAULT ''"),
+                ("updated_at", "TEXT NOT NULL DEFAULT ''"),
             ):
                 if name not in document_columns:
                     db.execute(f"ALTER TABLE documents ADD COLUMN {name} {definition}")
             run_columns = {row["name"] for row in db.execute("PRAGMA table_info(runs)").fetchall()}
-            if "attachments_json" not in run_columns:
-                db.execute("ALTER TABLE runs ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]'")
+            for name, definition in (
+                ("attachments_json", "TEXT NOT NULL DEFAULT '[]'"),
+                ("idempotency_key", "TEXT NOT NULL DEFAULT ''"),
+                ("request_id", "TEXT NOT NULL DEFAULT ''"),
+                ("cancel_requested", "INTEGER NOT NULL DEFAULT 0"),
+                ("metrics_json", "TEXT NOT NULL DEFAULT '{}'"),
+                ("finished_at", "TEXT NOT NULL DEFAULT ''"),
+            ):
+                if name not in run_columns:
+                    db.execute(f"ALTER TABLE runs ADD COLUMN {name} {definition}")
+            db.execute(
+                """CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_session_idempotency
+                ON runs(session_id, idempotency_key) WHERE idempotency_key <> ''"""
+            )
 
     def create_kb(self, name: str) -> dict:
         name = name.strip()
@@ -120,12 +137,13 @@ class Store:
         parser_method: str = "",
         parse_warnings: list[str] | None = None,
         parse_metadata: dict | None = None,
+        source_path: str = "",
     ):
         result = self.add_documents(kb_id, [{
             "filename": filename, "title": title, "version_date": version_date, "scope": scope,
             "content": content, "sha256": sha256, "parser_name": parser_name,
             "parser_method": parser_method, "parse_warnings": parse_warnings or [],
-            "parse_metadata": parse_metadata or {},
+            "parse_metadata": parse_metadata or {}, "source_path": source_path,
         }])
         return result[0]
 
@@ -144,13 +162,14 @@ class Store:
                     continue
                 doc_id = str(uuid.uuid4())
                 db.execute(
-                    """INSERT INTO documents(id,kb_id,filename,title,version_date,scope,content,status,sha256,created_at,parser_name,parser_method,parse_warnings,parse_metadata)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    """INSERT INTO documents(id,kb_id,filename,title,version_date,scope,content,status,sha256,created_at,parser_name,parser_method,parse_warnings,parse_metadata,source_path,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (doc_id, kb_id, item["filename"], item["title"], item["version_date"],
                      item["scope"], item["content"], "uploaded", item["sha256"], now_iso(),
                      item.get("parser_name", ""), item.get("parser_method", ""),
                      json.dumps(item.get("parse_warnings", []), ensure_ascii=False),
-                     json.dumps(item.get("parse_metadata", {}), ensure_ascii=False)),
+                     json.dumps(item.get("parse_metadata", {}), ensure_ascii=False),
+                     item.get("source_path", ""), now_iso()),
                 )
                 results.append((doc_id, True))
             if any(created for _, created in results):
@@ -173,7 +192,10 @@ class Store:
                         text, start, end = piece.text, piece.start, piece.end
                         section_path = piece.section_path
                         chunk_method = getattr(piece, "method", "structured")
-                    retrieval_text = "\n".join(filter(None, (doc["title"], doc["scope"], section_path, text)))
+                    retrieval_context = getattr(piece, "retrieval_context", "") if not isinstance(piece, tuple) else ""
+                    retrieval_text = "\n".join(filter(None, (
+                        doc["title"], doc["scope"], section_path, retrieval_context, text,
+                    )))
                     db.execute(
                         "INSERT INTO chunks(id,document_id,ordinal,text,start_offset,end_offset,retrieval_text,section_path,chunk_method) VALUES(?,?,?,?,?,?,?,?,?)",
                         (str(uuid.uuid4()), doc["id"], i, text, start, end, retrieval_text, section_path, chunk_method),
@@ -199,7 +221,7 @@ class Store:
 
     def documents(self, kb_id: str):
         with self.connect() as db:
-            rows = db.execute("""SELECT d.id,d.kb_id,d.filename,d.title,d.version_date,d.scope,d.status,d.parser_name,d.parser_method,d.parse_warnings,
+            rows = db.execute("""SELECT d.id,d.kb_id,d.filename,d.title,d.version_date,d.scope,d.status,d.parser_name,d.parser_method,d.parse_warnings,d.source_path,d.updated_at,
                 d.parse_metadata,length(d.content) character_count,count(c.id) chunk_count
                 FROM documents d LEFT JOIN chunks c ON c.document_id=d.id
                 WHERE d.kb_id=? GROUP BY d.id ORDER BY d.created_at""", (kb_id,)).fetchall()
@@ -246,6 +268,61 @@ class Store:
             row = db.execute("SELECT * FROM documents WHERE id=?", (document_id,)).fetchone()
         return dict(row) if row else None
 
+    def set_document_source(self, document_id: str, source_path: str):
+        with self.connect() as db:
+            db.execute(
+                "UPDATE documents SET source_path=?,updated_at=? WHERE id=?",
+                (source_path, now_iso(), document_id),
+            )
+
+    def replace_document_parse(
+        self,
+        document_id: str,
+        *,
+        content: str,
+        parser_name: str,
+        parser_method: str,
+        parse_warnings: list[str],
+        parse_metadata: dict,
+    ) -> str | None:
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT kb_id FROM documents WHERE id=?",
+                (document_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            db.execute("DELETE FROM chunks WHERE document_id=?", (document_id,))
+            db.execute(
+                """UPDATE documents SET content=?,status='uploaded',parser_name=?,parser_method=?,
+                parse_warnings=?,parse_metadata=?,updated_at=? WHERE id=?""",
+                (
+                    content,
+                    parser_name,
+                    parser_method,
+                    json.dumps(parse_warnings, ensure_ascii=False),
+                    json.dumps(parse_metadata, ensure_ascii=False),
+                    now_iso(),
+                    document_id,
+                ),
+            )
+            db.execute("UPDATE knowledge_bases SET status='dirty' WHERE id=?", (row["kb_id"],))
+            return row["kb_id"]
+
+    def delete_document(self, document_id: str) -> str | None:
+        with self.connect() as db:
+            row = db.execute("SELECT kb_id FROM documents WHERE id=?", (document_id,)).fetchone()
+            if row is None:
+                return None
+            db.execute("DELETE FROM documents WHERE id=?", (document_id,))
+            db.execute("UPDATE knowledge_bases SET status='dirty' WHERE id=?", (row["kb_id"],))
+            return row["kb_id"]
+
+    def delete_knowledge_base(self, kb_id: str) -> bool:
+        with self.connect() as db:
+            cursor = db.execute("DELETE FROM knowledge_bases WHERE id=?", (kb_id,))
+            return cursor.rowcount > 0
+
     def create_session(self, kb_id: str, title: str):
         if not self.get_kb(kb_id):
             raise ValueError("知识库不存在")
@@ -264,7 +341,8 @@ class Store:
     def session_runs(self, session_id: str):
         with self.connect() as db:
             rows = db.execute(
-                "SELECT id,question,status,result_json,created_at,attachments_json FROM runs WHERE session_id=? ORDER BY created_at",
+                """SELECT id,question,status,result_json,created_at,attachments_json,request_id,
+                cancel_requested,metrics_json,finished_at FROM runs WHERE session_id=? ORDER BY created_at""",
                 (session_id,),
             ).fetchall()
         values = []
@@ -272,21 +350,70 @@ class Store:
             item = dict(row)
             item["result"] = json.loads(item.pop("result_json")) if item["result_json"] else None
             item["attachments"] = json.loads(item.pop("attachments_json") or "[]")
+            item["metrics"] = json.loads(item.pop("metrics_json") or "{}")
+            item["cancel_requested"] = bool(item["cancel_requested"])
             values.append(item)
         return values
 
-    def create_run(self, session_id: str, question: str, attachments: list[str] | None = None):
+    def create_run(
+        self,
+        session_id: str,
+        question: str,
+        attachments: list[str] | None = None,
+        *,
+        idempotency_key: str = "",
+        request_id: str = "",
+    ):
         run_id = str(uuid.uuid4())
         with self.connect() as db:
             db.execute(
-                "INSERT INTO runs(id,session_id,question,status,result_json,created_at,attachments_json) VALUES(?,?,?,?,?,?,?)",
-                (run_id, session_id, question, "running", None, now_iso(), json.dumps(attachments or [], ensure_ascii=False)),
+                """INSERT INTO runs(id,session_id,question,status,result_json,created_at,
+                attachments_json,idempotency_key,request_id) VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    run_id, session_id, question, "running", None, now_iso(),
+                    json.dumps(attachments or [], ensure_ascii=False),
+                    idempotency_key, request_id,
+                ),
             )
         return run_id
 
+    def find_run_by_idempotency(self, session_id: str, idempotency_key: str):
+        if not idempotency_key:
+            return None
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT id FROM runs WHERE session_id=? AND idempotency_key=?",
+                (session_id, idempotency_key),
+            ).fetchone()
+        return row["id"] if row else None
+
+    def request_cancel(self, run_id: str) -> bool:
+        with self.connect() as db:
+            row = db.execute("SELECT status FROM runs WHERE id=?", (run_id,)).fetchone()
+            if row is None:
+                return False
+            if row["status"] == "running":
+                db.execute("UPDATE runs SET cancel_requested=1 WHERE id=?", (run_id,))
+            return True
+
+    def is_cancel_requested(self, run_id: str) -> bool:
+        with self.connect() as db:
+            row = db.execute("SELECT cancel_requested FROM runs WHERE id=?", (run_id,)).fetchone()
+        return bool(row and row["cancel_requested"])
+
     def finish_run(self, run_id: str, result: dict):
         with self.connect() as db:
-            db.execute("UPDATE runs SET status=?,result_json=? WHERE id=?", (result["status"],json.dumps(result,ensure_ascii=False),run_id))
+            db.execute(
+                "UPDATE runs SET status=?,result_json=?,finished_at=? WHERE id=?",
+                (result["status"], json.dumps(result, ensure_ascii=False), now_iso(), run_id),
+            )
+
+    def update_run_metrics(self, run_id: str, metrics: dict):
+        with self.connect() as db:
+            db.execute(
+                "UPDATE runs SET metrics_json=? WHERE id=?",
+                (json.dumps(metrics, ensure_ascii=False), run_id),
+            )
 
     def add_event(self, run_id: str, event_type: str, payload: dict):
         with self.connect() as db:
@@ -301,6 +428,8 @@ class Store:
         data=dict(row)
         data["result"] = json.loads(data.pop("result_json")) if data["result_json"] else None
         data["attachments"] = json.loads(data.pop("attachments_json", "[]") or "[]")
+        data["metrics"] = json.loads(data.pop("metrics_json", "{}") or "{}")
+        data["cancel_requested"] = bool(data["cancel_requested"])
         return data
 
     def events(self, run_id: str, after_seq: int = 0):

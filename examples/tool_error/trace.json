@@ -1,0 +1,95 @@
+{
+  "captured_at": "2026-11-03T20:06:49.4104524+08:00",
+  "input": {
+    "attachment": "example-bad.png",
+    "question": "请读取这个图片"
+  },
+  "output": {
+    "answer": "Agent 执行失败，未生成可靠答案。",
+    "status": "tool_error",
+    "citations": [],
+    "gaps": [
+      "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND；请检查运行日志、模型配置或解析器依赖。"
+    ],
+    "question_to_user": null,
+    "trace": [
+      {
+        "step": 1,
+        "action": "error",
+        "error": "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND",
+        "mode": "real"
+      }
+    ],
+    "mode": "real",
+    "metrics": {
+      "request_id": "ca6754f21d2d41d0801eadd24ab1950d"
+    }
+  },
+  "run": {
+    "id": "88c255ce-d3d5-4a81-9db9-8b562d70e0fe",
+    "request_id": "ca6754f21d2d41d0801eadd24ab1950d",
+    "metrics": {
+      "request_id": "ca6754f21d2d41d0801eadd24ab1950d"
+    },
+    "status": "tool_error"
+  },
+  "trace": [
+    {
+      "step": 1,
+      "action": "error",
+      "error": "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND",
+      "mode": "real"
+    }
+  ],
+  "events": [
+    {
+      "run_id": "88c255ce-d3d5-4a81-9db9-8b562d70e0fe",
+      "seq": 1,
+      "event_type": "run_started",
+      "question": "请读取这个图片",
+      "attachments": [
+        "example-bad.png"
+      ]
+    },
+    {
+      "run_id": "88c255ce-d3d5-4a81-9db9-8b562d70e0fe",
+      "seq": 2,
+      "event_type": "attachment_received",
+      "filename": "example-bad.png",
+      "bytes": 14
+    },
+    {
+      "run_id": "88c255ce-d3d5-4a81-9db9-8b562d70e0fe",
+      "seq": 3,
+      "event_type": "run_error",
+      "error": "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND"
+    },
+    {
+      "run_id": "88c255ce-d3d5-4a81-9db9-8b562d70e0fe",
+      "seq": 4,
+      "event_type": "run_finished",
+      "status": "tool_error",
+      "result": {
+        "answer": "Agent 执行失败，未生成可靠答案。",
+        "status": "tool_error",
+        "citations": [],
+        "gaps": [
+          "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND；请检查运行日志、模型配置或解析器依赖。"
+        ],
+        "question_to_user": null,
+        "trace": [
+          {
+            "step": 1,
+            "action": "error",
+            "error": "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND",
+            "mode": "real"
+          }
+        ],
+        "mode": "real",
+        "metrics": {
+          "request_id": "ca6754f21d2d41d0801eadd24ab1950d"
+        }
+      }
+    }
+  ]
+}

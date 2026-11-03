@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
+import sqlite3
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
@@ -23,6 +26,28 @@ store = Store(settings.db_path)
 executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="knowledge-agent")
 app = FastAPI(title="Xiaoying Knowledge Agent")
 app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:8000"], allow_methods=["*"], allow_headers=["*"])
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_UPLOAD_ROOT = _PROJECT_ROOT / "runtime" / "uploads"
+
+
+def _save_source_file(kb_id: str, document_id: str, filename: str, data: bytes) -> str:
+    directory = _UPLOAD_ROOT / kb_id
+    directory.mkdir(parents=True, exist_ok=True)
+    suffix = Path(filename).suffix.lower()
+    target = directory / f"{document_id}{suffix}"
+    target.write_bytes(data)
+    relative = target.relative_to(_PROJECT_ROOT).as_posix()
+    store.set_document_source(document_id, relative)
+    return relative
+
+
+def _resolve_stored_source(source_path: str) -> Path:
+    candidate = (_PROJECT_ROOT / source_path).resolve()
+    root = _UPLOAD_ROOT.resolve()
+    if root not in candidate.parents:
+        raise ValueError("文档原始文件路径非法")
+    return candidate
 
 
 def seed_demo_if_empty():
@@ -96,6 +121,12 @@ class SettingsUpdate(BaseModel):
     chunk_llm_min_chars: int | None = Field(default=None, ge=300, le=100000)
     chunk_llm_max_chars: int | None = Field(default=None, ge=1000, le=100000)
     chunk_llm_timeout_seconds: int | None = Field(default=None, ge=5, le=300)
+    table_max_chars: int | None = Field(default=None, ge=100, le=100000)
+    outline_llm_enabled: bool | None = None
+    outline_llm_model: str | None = None
+    outline_llm_min_headings: int | None = Field(default=None, ge=1, le=1000)
+    outline_llm_max_headings: int | None = Field(default=None, ge=1, le=1000)
+    outline_llm_timeout_seconds: int | None = Field(default=None, ge=5, le=300)
     parse_pdf_tables: bool | None = None
     parse_embedded_images: bool | None = None
     vision_enabled: bool | None = None
@@ -156,6 +187,12 @@ def get_settings():
         "chunk_llm_min_chars": settings.chunk_llm_min_chars,
         "chunk_llm_max_chars": settings.chunk_llm_max_chars,
         "chunk_llm_timeout_seconds": settings.chunk_llm_timeout_seconds,
+        "table_max_chars": settings.table_max_chars,
+        "outline_llm_enabled": settings.outline_llm_enabled,
+        "outline_llm_model": settings.outline_llm_model,
+        "outline_llm_min_headings": settings.outline_llm_min_headings,
+        "outline_llm_max_headings": settings.outline_llm_max_headings,
+        "outline_llm_timeout_seconds": settings.outline_llm_timeout_seconds,
         "parse_pdf_tables": settings.parse_pdf_tables,
         "parse_embedded_images": settings.parse_embedded_images,
         "vision_enabled": settings.vision_enabled,
@@ -238,7 +275,8 @@ def capabilities():
                         "vision": {"enabled": settings.vision_enabled, "model": settings.vision_model or settings.model},
                         "extensions": sorted(SUPPORTED_EXTENSIONS), "max_upload_bytes": settings.max_upload_bytes},
             "chunking": {"strategy": settings.chunk_strategy, "target_chars": settings.chunk_size,
-                         "overlap": settings.chunk_overlap, "llm_model": settings.chunk_llm_model or settings.model}}
+                         "overlap": settings.chunk_overlap, "llm_model": settings.chunk_llm_model or settings.model,
+                         "outline_enabled": settings.outline_llm_enabled}}
 
 
 @app.get("/api/knowledge-bases")
@@ -283,12 +321,84 @@ async def upload(kb_id: str, file: UploadFile = File(...), version_date: str = F
         parsed.warnings,
         parsed.metadata,
     )
+    _save_source_file(kb_id, doc_id, file.filename or "upload.txt", data)
     store.add_build_event(kb_id, "document_parsed", {
         "document_id": doc_id, "filename": file.filename or "upload.txt",
         "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings,
         "characters": len(text), "metadata": parsed.metadata, "created": created,
     })
     return {"document_id": doc_id, "created": created, "characters": len(text), "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings, "metadata": parsed.metadata}
+
+
+@app.post("/api/documents/{document_id}/reparse")
+async def reparse_document(document_id: str):
+    document = store.get_document(document_id)
+    if not document:
+        raise HTTPException(404, "文档不存在")
+    if not document.get("source_path"):
+        raise HTTPException(409, "该文档没有保留原始文件，无法重新解析；请删除后重新上传")
+    try:
+        source = _resolve_stored_source(document["source_path"])
+        data = source.read_bytes()
+        parsed = await asyncio.to_thread(parse_attachment, document["filename"], data, settings)
+    except (ValueError, OSError, RuntimeError) as exc:
+        raise HTTPException(400, f"重新解析失败：{exc}") from exc
+    if not parsed.text.strip():
+        raise HTTPException(400, "重新解析未提取到可索引文本")
+    kb_id = store.replace_document_parse(
+        document_id,
+        content=parsed.text,
+        parser_name=parsed.parser,
+        parser_method=parsed.method,
+        parse_warnings=parsed.warnings,
+        parse_metadata=parsed.metadata,
+    )
+    store.add_build_event(kb_id, "document_reparsed", {
+        "document_id": document_id,
+        "filename": document["filename"],
+        "parser": parsed.parser,
+        "method": parsed.method,
+        "metadata": parsed.metadata,
+        "characters": len(parsed.text),
+    })
+    return {
+        "document_id": document_id,
+        "status": "uploaded",
+        "characters": len(parsed.text),
+        "parser": parsed.parser,
+        "method": parsed.method,
+        "warnings": parsed.warnings,
+        "metadata": parsed.metadata,
+        "rebuild_required": True,
+    }
+
+
+@app.delete("/api/documents/{document_id}")
+def delete_document(document_id: str):
+    document = store.get_document(document_id)
+    if not document:
+        raise HTTPException(404, "文档不存在")
+    source_path = document.get("source_path")
+    kb_id = store.delete_document(document_id)
+    if source_path:
+        try:
+            _resolve_stored_source(source_path).unlink(missing_ok=True)
+        except (ValueError, OSError):
+            pass
+    store.add_build_event(kb_id, "document_deleted", {"document_id": document_id, "filename": document["filename"]})
+    return {"deleted": True, "document_id": document_id, "rebuild_required": True}
+
+
+@app.delete("/api/knowledge-bases/{kb_id}")
+def delete_knowledge_base(kb_id: str):
+    if not store.get_kb(kb_id):
+        raise HTTPException(404, "知识库不存在")
+    if not store.delete_knowledge_base(kb_id):
+        raise HTTPException(404, "知识库不存在")
+    directory = (_UPLOAD_ROOT / kb_id).resolve()
+    if _UPLOAD_ROOT.resolve() in directory.parents and directory.exists():
+        shutil.rmtree(directory)
+    return {"deleted": True, "kb_id": kb_id}
 
 
 @app.post("/api/knowledge-bases/{kb_id}/build")
@@ -329,14 +439,22 @@ def build_events(kb_id: str):
 
 @app.post("/api/knowledge-bases/{kb_id}/retrieve")
 def retrieve(kb_id: str, payload: RetrieveIn):
-    from .query_rewrite import ConversationQueryRewriter
+    from .prompt_guard import PromptGuard
+    from .query_rewrite import QueryRewriteService
     from .rag import KnowledgeRetrievalService
 
     kb = store.get_kb(kb_id)
     if not kb: raise HTTPException(404, "知识库不存在")
     query = payload.query.strip()
     if not query: raise HTTPException(400, "query 不能为空")
-    rewrite = ConversationQueryRewriter().rewrite(query, payload.history) if settings.query_rewrite_enabled else None
+    guard = PromptGuard()
+    safe_history = [
+        {"role": item.get("role"), "content": guard.normalize(str(item.get("content", "")))}
+        for item in payload.history
+        if item.get("role") in {"user", "assistant"} and guard.inspect(str(item.get("content", ""))).allowed
+    ]
+    rewriter = QueryRewriteService(settings)
+    rewrite = rewriter.rewrite(query, safe_history) if settings.query_rewrite_enabled else None
     effective_query = rewrite.query if rewrite and rewrite.applied else query
     started = time.perf_counter()
     required_terms = rewrite.focus_terms if rewrite and rewrite.applied else ()
@@ -356,7 +474,10 @@ def retrieve(kb_id: str, payload: RetrieveIn):
     return {
         "query": query, "effective_query": effective_query,
         "rewrite_applied": bool(rewrite and rewrite.applied),
-        "rewrite_reason": rewrite.reason if rewrite else None, "hits": hits, "total_hits": len(hits),
+        "rewrite_reason": rewrite.reason if rewrite else None,
+        "rewrite_method": rewrite.method if rewrite else None,
+        "rewrite_diagnostics": rewriter.last_diagnostics,
+        "hits": hits, "total_hits": len(hits),
         "duration_ms": duration_ms, "index_version": kb["index_version"],
         "retrieval_method": diagnostics["method"], "diagnostics": diagnostics,
     }
@@ -379,6 +500,8 @@ async def execute_run(run_id: str, session_id: str, payload: RunIn, attachments:
     if not session: return
     store.add_event(run_id, "run_started", {"question": payload.question, "attachments": [name for name, _ in (attachments or [])]})
     attachment_ids = []
+    run_record = store.run(run_id) or {}
+    request_id = run_record.get("request_id", "")
     try:
         parsed_attachments = []
         for filename, data in attachments or []:
@@ -395,12 +518,23 @@ async def execute_run(run_id: str, session_id: str, payload: RunIn, attachments:
         stored = store.add_documents(session["kb_id"], documents) if documents else []
         for (filename, _data, parsed), (doc_id, created) in zip(parsed_attachments, stored):
             attachment_ids.append(doc_id)
+            _save_source_file(session["kb_id"], doc_id, filename, _data)
             store.add_event(run_id, "attachment_parsed", {"filename": filename, "document_id": doc_id, "created": created, "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings, "metadata": parsed.metadata, "characters": len(parsed.text)})
         if attachment_ids:
             store.add_event(run_id, "attachment_indexing", {"documents": len(attachment_ids)})
             await asyncio.to_thread(build_kb, store, session["kb_id"], settings)
             store.add_event(run_id, "attachment_indexed", {"document_ids": attachment_ids})
-        result = await asyncio.to_thread(run_agent, store, session["kb_id"], payload.question, payload.history, settings, lambda t,e: store.add_event(run_id,t,e), attachment_ids or None)
+        result = await asyncio.to_thread(
+            run_agent,
+            store,
+            session["kb_id"],
+            payload.question,
+            payload.history,
+            settings,
+            lambda t, e: store.add_event(run_id, t, e),
+            attachment_ids or None,
+            lambda: store.is_cancel_requested(run_id),
+        )
     except Exception as exc:  # noqa: BLE001 - background runs must reach a terminal state
         result = {
             "answer": "Agent 执行失败，未生成可靠答案。",
@@ -410,12 +544,16 @@ async def execute_run(run_id: str, session_id: str, payload: RunIn, attachments:
             "question_to_user": None,
             "trace": [{"step": 1, "action": "error", "error": str(exc)[:240], "mode": settings.mode}],
             "mode": settings.mode,
+            "metrics": {"request_id": request_id},
         }
         store.add_event(run_id, "run_error", {"error": str(exc)[:240]})
         store.finish_run(run_id, result)
+        store.update_run_metrics(run_id, result["metrics"])
         store.add_event(run_id, "run_finished", {"status": result["status"], "result": result})
         return
+    result.metrics = {**result.metrics, "request_id": request_id}
     store.finish_run(run_id, result.to_dict())
+    store.update_run_metrics(run_id, result.metrics)
     store.add_event(run_id, "run_finished", {"status": result.status, "result": result.to_dict()})
 
 
@@ -430,7 +568,11 @@ def session_runs(session_id: str):
 
 
 @app.post("/api/sessions/{session_id}/runs")
-async def create_run(session_id: str, request: Request):
+async def create_run(
+    session_id: str,
+    request: Request,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+):
     session = next((s for s in store.sessions() if s["id"] == session_id), None)
     if not session: raise HTTPException(404, "会话不存在")
     attachments: list[tuple[str, bytes]] = []
@@ -458,9 +600,46 @@ async def create_run(session_id: str, request: Request):
     else:
         try: payload = RunIn.model_validate(await request.json())
         except Exception as exc: raise HTTPException(422, "请求体必须包含 question") from exc
-    run_id = store.create_run(session_id, payload.question, [name for name, _ in attachments])
+    if idempotency_key:
+        existing_id = store.find_run_by_idempotency(session_id, idempotency_key)
+        if existing_id:
+            existing = store.run(existing_id)
+            return {
+                "run_id": existing_id,
+                "status": existing["status"],
+                "attachments": len(existing.get("attachments", [])),
+                "idempotent_replay": True,
+            }
+    try:
+        run_id = store.create_run(
+            session_id,
+            payload.question,
+            [name for name, _ in attachments],
+            idempotency_key=idempotency_key or "",
+            request_id=uuid.uuid4().hex,
+        )
+    except sqlite3.IntegrityError:
+        existing_id = store.find_run_by_idempotency(session_id, idempotency_key or "")
+        if not existing_id:
+            raise
+        existing = store.run(existing_id)
+        return {
+            "run_id": existing_id,
+            "status": existing["status"],
+            "attachments": len(existing.get("attachments", [])),
+            "idempotent_replay": True,
+        }
     executor.submit(lambda: asyncio.run(execute_run(run_id, session_id, payload, attachments)))
     return {"run_id": run_id, "status": "running", "attachments": len(attachments)}
+
+
+@app.post("/api/runs/{run_id}/cancel")
+def cancel_run(run_id: str):
+    if not store.run(run_id):
+        raise HTTPException(404, "运行不存在")
+    store.request_cancel(run_id)
+    store.add_event(run_id, "cancel_requested", {"run_id": run_id})
+    return {"run_id": run_id, "cancel_requested": True}
 
 
 @app.get("/api/runs/{run_id}")

@@ -14,7 +14,8 @@ const initial = {
   rerank_enabled: true, rerank_backend: 'local', rerank_model: 'BAAI/bge-reranker-base', rerank_device: 'cpu', rerank_top_k: 8, rerank_api_url: '', rerank_api_key: '', rerank_api_key_configured: false,
   mineru_command: '', mineru_server_url: '', mineru_method: 'auto',
   tesseract_command: 'tesseract', tesseract_lang: 'chi_sim+eng',
-  chunk_strategy: 'auto', chunk_llm_model: '', chunk_llm_min_chars: 1600, chunk_llm_max_chars: 12000, chunk_llm_timeout_seconds: 60,
+  chunk_strategy: 'auto', chunk_llm_model: '', chunk_llm_min_chars: 1600, chunk_llm_max_chars: 12000, chunk_llm_timeout_seconds: 60, table_max_chars: 3000,
+  outline_llm_enabled: true, outline_llm_model: '', outline_llm_min_headings: 3, outline_llm_max_headings: 100, outline_llm_timeout_seconds: 30,
   parse_pdf_tables: true, parse_embedded_images: true,
   vision_enabled: false, vision_model: '', vision_api_url: '', vision_api_key: '', vision_api_key_configured: false,
   vision_timeout_seconds: 60, max_embedded_images: 20,
@@ -101,6 +102,10 @@ export default function SettingsPanel({ capabilities, onSaved }) {
       <label className="form-field"><span>分块模型</span><input name="chunk_llm_model" value={form.chunk_llm_model} onChange={change} placeholder="留空复用问答模型" /></label>
       <label className="form-field"><span>LLM 最小触发字符 / 单窗口上限</span><div className="inline-fields"><input aria-label="LLM 最小触发字符" type="number" min="300" name="chunk_llm_min_chars" value={form.chunk_llm_min_chars} onChange={change} /><input aria-label="LLM 单窗口上限" type="number" min="1000" name="chunk_llm_max_chars" value={form.chunk_llm_max_chars} onChange={change} /></div></label>
       <label className="form-field"><span>分块模型超时（秒）</span><input type="number" min="5" max="300" name="chunk_llm_timeout_seconds" value={form.chunk_llm_timeout_seconds} onChange={change} /></label>
+      <label className="form-field"><span>表格单块字符上限</span><input type="number" min="420" max="50000" name="table_max_chars" value={form.table_max_chars} onChange={change} /></label>
+      <label className="check-field"><input type="checkbox" checked={form.outline_llm_enabled} onChange={event => setForm(current => ({ ...current, outline_llm_enabled: event.target.checked }))} /> 对扁平标题执行 LLM 大纲重建</label>
+      <label className="form-field"><span>大纲模型</span><input name="outline_llm_model" value={form.outline_llm_model} onChange={change} placeholder="留空复用分块模型" /></label>
+      <label className="form-field"><span>标题数触发区间 / 超时</span><div className="inline-fields"><input aria-label="最少标题数" type="number" min="1" name="outline_llm_min_headings" value={form.outline_llm_min_headings} onChange={change} /><input aria-label="最多标题数" type="number" min="1" name="outline_llm_max_headings" value={form.outline_llm_max_headings} onChange={change} /><input aria-label="大纲超时" type="number" min="5" name="outline_llm_timeout_seconds" value={form.outline_llm_timeout_seconds} onChange={change} /></div></label>
       <label className="check-field"><input type="checkbox" checked={form.parse_pdf_tables} onChange={event => setForm(current => ({ ...current, parse_pdf_tables: event.target.checked }))} /> 提取 PDF 表格并转换为 Markdown</label>
       <label className="check-field"><input type="checkbox" checked={form.parse_embedded_images} onChange={event => setForm(current => ({ ...current, parse_embedded_images: event.target.checked }))} /> 解析 DOCX/PDF 内嵌图片</label>
       <label className="form-field"><span>单文档最多图片数</span><input type="number" min="0" max="200" name="max_embedded_images" value={form.max_embedded_images} onChange={change} /></label>

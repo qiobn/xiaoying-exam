@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from .chunking import ChunkPiece, StructuredChunker
 from .config import Settings
+from .outline import DocumentOutline, OutlineResolver
 from .table_utils import count_markdown_tables
 
 _CODE_FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
@@ -78,6 +79,7 @@ class LLMSemanticChunker:
         pieces = StructuredChunker(
             self.settings.chunk_size,
             self.settings.chunk_overlap,
+            self.settings.table_max_chars,
         ).split(text)
         self.last_diagnostics = {
             "used": "structured",
@@ -170,6 +172,7 @@ class LLMSemanticChunker:
         pieces = StructuredChunker(
             self.settings.chunk_size,
             self.settings.chunk_overlap,
+            self.settings.table_max_chars,
         ).split(content)
         return [
             ChunkPiece(
@@ -178,6 +181,7 @@ class LLMSemanticChunker:
                 end=absolute_start + piece.end,
                 section_path=spec.title or "未命名片段",
                 method="llm",
+                retrieval_context=piece.retrieval_context,
             )
             for piece in pieces
         ]
@@ -203,6 +207,7 @@ class LLMSemanticChunker:
             for piece in StructuredChunker(
                 self.settings.chunk_size,
                 self.settings.chunk_overlap,
+                self.settings.table_max_chars,
             ).split(segment):
                 base = offsets[start]
                 pieces.append(
@@ -212,6 +217,7 @@ class LLMSemanticChunker:
                         end=base + piece.end,
                         section_path="模型未覆盖内容",
                         method="structured",
+                        retrieval_context=piece.retrieval_context,
                     )
                 )
         return pieces
@@ -275,15 +281,15 @@ class SmartChunker:
             self.last_diagnostics = chunker.last_diagnostics
             self.diagnostics_history.append(dict(self.last_diagnostics))
             return pieces
-        pieces = StructuredChunker(
-            self.settings.chunk_size,
-            self.settings.chunk_overlap,
-        ).split(text)
+        outline = OutlineResolver(self.settings).resolve(text)
+        pieces = self._split_with_outline(text, outline)
         self.last_diagnostics = {
             "used": "structured",
             "fallback": None,
             "reason": "configured_structured" if strategy == "structured" else "auto_not_eligible",
             "chunks": len(pieces),
+            "outline": outline.source,
+            "outline_fallback": outline.fallback,
         }
         self.diagnostics_history.append(dict(self.last_diagnostics))
         return pieces
@@ -293,3 +299,41 @@ class SmartChunker:
         lines = text.splitlines()
         headings = sum(1 for line in lines if re.match(r"^#{1,6}\s+", line))
         return headings >= 2 and headings >= max(1, len(lines) // 25)
+
+    def _split_with_outline(self, text: str, outline: DocumentOutline) -> list[ChunkPiece]:
+        if not outline.has_hierarchy:
+            return StructuredChunker(
+                self.settings.chunk_size,
+                self.settings.chunk_overlap,
+                self.settings.table_max_chars,
+            ).split(text)
+        lines = text.splitlines(keepends=True)
+        offsets = LLMSemanticChunker._line_offsets(lines)
+        groups: list[tuple[int, int, tuple[str, ...]]] = []
+        start = 0
+        current = tuple(outline.path_for_line(1))
+        for line_index in range(1, len(lines)):
+            path = tuple(outline.path_for_line(line_index + 1))
+            if path != current:
+                groups.append((start, line_index, current))
+                start = line_index
+                current = path
+        groups.append((start, len(lines), current))
+        pieces: list[ChunkPiece] = []
+        for start_line, end_line, path in groups:
+            fragment = "".join(lines[start_line:end_line])
+            base = offsets[start_line]
+            for piece in StructuredChunker(
+                self.settings.chunk_size,
+                self.settings.chunk_overlap,
+                self.settings.table_max_chars,
+            ).split(fragment):
+                pieces.append(ChunkPiece(
+                    text=piece.text,
+                    start=base + piece.start,
+                    end=base + piece.end,
+                    section_path=" > ".join(path) or piece.section_path,
+                    method="structured",
+                    retrieval_context=piece.retrieval_context,
+                ))
+        return pieces

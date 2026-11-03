@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 
 
@@ -48,6 +48,7 @@ class AgentResult:
     question_to_user: str | None
     trace: list[dict]
     mode: str
+    metrics: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)

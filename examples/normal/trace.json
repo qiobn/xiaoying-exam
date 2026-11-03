@@ -1,0 +1,1079 @@
+{
+  "captured_at": "2026-11-03T20:06:42.4072722+08:00",
+  "input": {
+    "history": [],
+    "question": "年假需要提前几天申请？"
+  },
+  "output": {
+    "answer": "根据知识库原文：员工申请年假应至少提前 3 个工作日提交申请，并由直属主管审批。",
+    "status": "completed",
+    "citations": [
+      {
+        "document_id": "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+        "title": "年假申请 FAQ",
+        "version_date": "2026-02-01",
+        "quote": "员工申请年假应至少提前 3 个工作日提交申请，并由直属主管审批。",
+        "chunk_id": "73740635-fd60-43a5-940b-1943fd17978f"
+      }
+    ],
+    "gaps": [],
+    "question_to_user": null,
+    "trace": [
+      {
+        "step": 1,
+        "action": "search_documents",
+        "arguments": {
+          "query": "年假需要提前几天申请"
+        },
+        "mode": "real",
+        "observation": {
+          "ok": true,
+          "summary": "3 个候选 · jieba_bm25",
+          "document_ids": [
+            "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+            "60fb77f7-5d50-46fe-8ece-a1b46dcac7d6",
+            "51be74c8-e405-4704-9457-333f517abee7"
+          ],
+          "security_warnings": []
+        }
+      },
+      {
+        "step": 2,
+        "action": "read_document",
+        "arguments": {
+          "document_id": "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+          "query": "年假提前几天申请"
+        },
+        "mode": "real",
+        "observation": {
+          "ok": true,
+          "summary": "读取 1 个原文块",
+          "document_ids": [
+            "4a7cd099-6115-4f03-ac91-25245fe74fdb"
+          ],
+          "security_warnings": []
+        }
+      },
+      {
+        "step": 3,
+        "action": "finish",
+        "arguments": {},
+        "mode": "real"
+      }
+    ],
+    "mode": "real",
+    "metrics": {
+      "duration_ms": 7510.07,
+      "model": "deepseek-v4-flash",
+      "mode": "real",
+      "steps": 3,
+      "tool_calls": 2,
+      "retrieval_calls": 1,
+      "read_calls": 1,
+      "model_calls": 3,
+      "usage": {
+        "input_tokens": 3539,
+        "output_tokens": 214,
+        "total_tokens": 3753
+      },
+      "query_rewrite_method": "none",
+      "query_rewrite_fallback": null,
+      "request_id": "5c0f8ace6f6f408fa3fcad41a71a4f7e"
+    }
+  },
+  "run": {
+    "id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+    "metrics": {
+      "duration_ms": 7510.07,
+      "model": "deepseek-v4-flash",
+      "mode": "real",
+      "steps": 3,
+      "tool_calls": 2,
+      "retrieval_calls": 1,
+      "read_calls": 1,
+      "model_calls": 3,
+      "usage": {
+        "input_tokens": 3539,
+        "output_tokens": 214,
+        "total_tokens": 3753
+      },
+      "query_rewrite_method": "none",
+      "query_rewrite_fallback": null,
+      "request_id": "5c0f8ace6f6f408fa3fcad41a71a4f7e"
+    },
+    "request_id": "5c0f8ace6f6f408fa3fcad41a71a4f7e",
+    "status": "completed"
+  },
+  "trace": [
+    {
+      "step": 1,
+      "action": "search_documents",
+      "arguments": {
+        "query": "年假需要提前几天申请"
+      },
+      "mode": "real",
+      "observation": {
+        "ok": true,
+        "summary": "3 个候选 · jieba_bm25",
+        "document_ids": [
+          "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+          "60fb77f7-5d50-46fe-8ece-a1b46dcac7d6",
+          "51be74c8-e405-4704-9457-333f517abee7"
+        ],
+        "security_warnings": []
+      }
+    },
+    {
+      "step": 2,
+      "action": "read_document",
+      "arguments": {
+        "document_id": "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+        "query": "年假提前几天申请"
+      },
+      "mode": "real",
+      "observation": {
+        "ok": true,
+        "summary": "读取 1 个原文块",
+        "document_ids": [
+          "4a7cd099-6115-4f03-ac91-25245fe74fdb"
+        ],
+        "security_warnings": []
+      }
+    },
+    {
+      "step": 3,
+      "action": "finish",
+      "arguments": {},
+      "mode": "real"
+    }
+  ],
+  "events": [
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 1,
+      "event_type": "run_started",
+      "question": "年假需要提前几天申请？",
+      "attachments": []
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 2,
+      "event_type": "agent_stage",
+      "title": "安全检查",
+      "detail": "检查提示词注入与敏感信息提取",
+      "status": "running",
+      "step": null
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 3,
+      "event_type": "agent_stage",
+      "title": "安全检查",
+      "detail": "通过",
+      "status": "done",
+      "step": null
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 4,
+      "event_type": "agent_stage",
+      "title": "检索路由",
+      "detail": "需要知识库：knowledge_term",
+      "status": "done",
+      "step": 0
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 5,
+      "event_type": "agent_stage",
+      "title": "Agent 决策",
+      "detail": "结合问题、历史与工具观察选择下一步",
+      "status": "running",
+      "step": 1
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 6,
+      "event_type": "agent_stage",
+      "title": "下一步动作",
+      "detail": "选择工具 search_documents",
+      "status": "done",
+      "step": 1
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 7,
+      "event_type": "trace",
+      "step": 1,
+      "action": "search_documents",
+      "arguments": {
+        "query": "年假需要提前几天申请"
+      },
+      "mode": "real"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 8,
+      "event_type": "agent_stage",
+      "title": "执行工具",
+      "detail": "开始执行 search_documents",
+      "status": "running",
+      "step": 1
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 9,
+      "event_type": "agent_stage",
+      "title": "工具观察",
+      "detail": "3 个候选 · jieba_bm25",
+      "status": "done",
+      "step": 1
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 10,
+      "event_type": "observation",
+      "step": 1,
+      "ok": true,
+      "summary": "3 个候选 · jieba_bm25",
+      "document_ids": [
+        "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+        "60fb77f7-5d50-46fe-8ece-a1b46dcac7d6",
+        "51be74c8-e405-4704-9457-333f517abee7"
+      ],
+      "security_warnings": []
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 11,
+      "event_type": "agent_stage",
+      "title": "Agent 决策",
+      "detail": "结合问题、历史与工具观察选择下一步",
+      "status": "running",
+      "step": 2
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 12,
+      "event_type": "agent_stage",
+      "title": "下一步动作",
+      "detail": "选择工具 read_document",
+      "status": "done",
+      "step": 2
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 13,
+      "event_type": "trace",
+      "step": 2,
+      "action": "read_document",
+      "arguments": {
+        "document_id": "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+        "query": "年假提前几天申请"
+      },
+      "mode": "real"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 14,
+      "event_type": "agent_stage",
+      "title": "执行工具",
+      "detail": "开始执行 read_document",
+      "status": "running",
+      "step": 2
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 15,
+      "event_type": "agent_stage",
+      "title": "工具观察",
+      "detail": "读取 1 个原文块",
+      "status": "done",
+      "step": 2
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 16,
+      "event_type": "observation",
+      "step": 2,
+      "ok": true,
+      "summary": "读取 1 个原文块",
+      "document_ids": [
+        "4a7cd099-6115-4f03-ac91-25245fe74fdb"
+      ],
+      "security_warnings": []
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 17,
+      "event_type": "agent_stage",
+      "title": "Agent 决策",
+      "detail": "结合问题、历史与工具观察选择下一步",
+      "status": "running",
+      "step": 3
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 18,
+      "event_type": "token",
+      "delta": "**",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 19,
+      "event_type": "token",
+      "delta": "结论",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 20,
+      "event_type": "token",
+      "delta": "：",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 21,
+      "event_type": "token",
+      "delta": "至少",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 22,
+      "event_type": "token",
+      "delta": "提前",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 23,
+      "event_type": "token",
+      "delta": " ",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 24,
+      "event_type": "token",
+      "delta": "3",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 25,
+      "event_type": "token",
+      "delta": " ",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 26,
+      "event_type": "token",
+      "delta": "个",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 27,
+      "event_type": "token",
+      "delta": "工作日",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 28,
+      "event_type": "token",
+      "delta": "提交",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 29,
+      "event_type": "token",
+      "delta": "申请",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 30,
+      "event_type": "token",
+      "delta": "，",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 31,
+      "event_type": "token",
+      "delta": "并由",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 32,
+      "event_type": "token",
+      "delta": "直属",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 33,
+      "event_type": "token",
+      "delta": "主管",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 34,
+      "event_type": "token",
+      "delta": "审批",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 35,
+      "event_type": "token",
+      "delta": "。**\n\n",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 36,
+      "event_type": "token",
+      "delta": "依据",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 37,
+      "event_type": "token",
+      "delta": "：《",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 38,
+      "event_type": "token",
+      "delta": "年",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 39,
+      "event_type": "token",
+      "delta": "假",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 40,
+      "event_type": "token",
+      "delta": "申请",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 41,
+      "event_type": "token",
+      "delta": " FAQ",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 42,
+      "event_type": "token",
+      "delta": "》（",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 43,
+      "event_type": "token",
+      "delta": "版本",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 44,
+      "event_type": "token",
+      "delta": "日期",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 45,
+      "event_type": "token",
+      "delta": " ",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 46,
+      "event_type": "token",
+      "delta": "202",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 47,
+      "event_type": "token",
+      "delta": "6",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 48,
+      "event_type": "token",
+      "delta": "-",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 49,
+      "event_type": "token",
+      "delta": "02",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 50,
+      "event_type": "token",
+      "delta": "-",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 51,
+      "event_type": "token",
+      "delta": "01",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 52,
+      "event_type": "token",
+      "delta": "，",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 53,
+      "event_type": "token",
+      "delta": "适用范围",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 54,
+      "event_type": "token",
+      "delta": "：",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 55,
+      "event_type": "token",
+      "delta": "全体员工",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 56,
+      "event_type": "token",
+      "delta": "）",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 57,
+      "event_type": "token",
+      "delta": "原文",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 58,
+      "event_type": "token",
+      "delta": "：“",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 59,
+      "event_type": "token",
+      "delta": "员工",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 60,
+      "event_type": "token",
+      "delta": "申请",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 61,
+      "event_type": "token",
+      "delta": "年",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 62,
+      "event_type": "token",
+      "delta": "假",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 63,
+      "event_type": "token",
+      "delta": "应",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 64,
+      "event_type": "token",
+      "delta": "至少",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 65,
+      "event_type": "token",
+      "delta": "提前",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 66,
+      "event_type": "token",
+      "delta": " ",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 67,
+      "event_type": "token",
+      "delta": "3",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 68,
+      "event_type": "token",
+      "delta": " ",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 69,
+      "event_type": "token",
+      "delta": "个",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 70,
+      "event_type": "token",
+      "delta": "工作日",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 71,
+      "event_type": "token",
+      "delta": "提交",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 72,
+      "event_type": "token",
+      "delta": "申请",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 73,
+      "event_type": "token",
+      "delta": "，",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 74,
+      "event_type": "token",
+      "delta": "并由",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 75,
+      "event_type": "token",
+      "delta": "直属",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 76,
+      "event_type": "token",
+      "delta": "主管",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 77,
+      "event_type": "token",
+      "delta": "审批",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 78,
+      "event_type": "token",
+      "delta": "。”\n\n",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 79,
+      "event_type": "token",
+      "delta": "注",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 80,
+      "event_type": "token",
+      "delta": "：",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 81,
+      "event_type": "token",
+      "delta": "这里的",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 82,
+      "event_type": "token",
+      "delta": "“",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 83,
+      "event_type": "token",
+      "delta": "3",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 84,
+      "event_type": "token",
+      "delta": " ",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 85,
+      "event_type": "token",
+      "delta": "个",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 86,
+      "event_type": "token",
+      "delta": "工作日",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 87,
+      "event_type": "token",
+      "delta": "”",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 88,
+      "event_type": "token",
+      "delta": "不含",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 89,
+      "event_type": "token",
+      "delta": "周末",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 90,
+      "event_type": "token",
+      "delta": "和",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 91,
+      "event_type": "token",
+      "delta": "法定",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 92,
+      "event_type": "token",
+      "delta": "节假日",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 93,
+      "event_type": "token",
+      "delta": "；",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 94,
+      "event_type": "token",
+      "delta": "如需",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 95,
+      "event_type": "token",
+      "delta": "更",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 96,
+      "event_type": "token",
+      "delta": "长的",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 97,
+      "event_type": "token",
+      "delta": "连续",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 98,
+      "event_type": "token",
+      "delta": "休假",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 99,
+      "event_type": "token",
+      "delta": "，",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 100,
+      "event_type": "token",
+      "delta": "建议",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 101,
+      "event_type": "token",
+      "delta": "同时",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 102,
+      "event_type": "token",
+      "delta": "确认",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 103,
+      "event_type": "token",
+      "delta": "所在",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 104,
+      "event_type": "token",
+      "delta": "部门",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 105,
+      "event_type": "token",
+      "delta": "是否有",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 106,
+      "event_type": "token",
+      "delta": "更",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 107,
+      "event_type": "token",
+      "delta": "细",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 108,
+      "event_type": "token",
+      "delta": "的规定",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 109,
+      "event_type": "token",
+      "delta": "。",
+      "phase": "draft"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 110,
+      "event_type": "agent_stage",
+      "title": "生成回答",
+      "detail": "已形成最终答复，正在校验引用与任务状态",
+      "status": "running",
+      "step": 3
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 111,
+      "event_type": "trace",
+      "step": 3,
+      "action": "finish",
+      "arguments": {},
+      "mode": "real"
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 112,
+      "event_type": "agent_stage",
+      "title": "结果校验",
+      "detail": "校验原文引用、冲突与任务状态",
+      "status": "running",
+      "step": null
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 113,
+      "event_type": "agent_stage",
+      "title": "回答完成",
+      "detail": "状态：completed",
+      "status": "done",
+      "step": null
+    },
+    {
+      "run_id": "8d5c1a6a-8cc5-4614-8523-22459ba8fa03",
+      "seq": 114,
+      "event_type": "run_finished",
+      "status": "completed",
+      "result": {
+        "answer": "根据知识库原文：员工申请年假应至少提前 3 个工作日提交申请，并由直属主管审批。",
+        "status": "completed",
+        "citations": [
+          {
+            "document_id": "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+            "title": "年假申请 FAQ",
+            "version_date": "2026-02-01",
+            "quote": "员工申请年假应至少提前 3 个工作日提交申请，并由直属主管审批。",
+            "chunk_id": "73740635-fd60-43a5-940b-1943fd17978f"
+          }
+        ],
+        "gaps": [],
+        "question_to_user": null,
+        "trace": [
+          {
+            "step": 1,
+            "action": "search_documents",
+            "arguments": {
+              "query": "年假需要提前几天申请"
+            },
+            "mode": "real",
+            "observation": {
+              "ok": true,
+              "summary": "3 个候选 · jieba_bm25",
+              "document_ids": [
+                "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+                "60fb77f7-5d50-46fe-8ece-a1b46dcac7d6",
+                "51be74c8-e405-4704-9457-333f517abee7"
+              ],
+              "security_warnings": []
+            }
+          },
+          {
+            "step": 2,
+            "action": "read_document",
+            "arguments": {
+              "document_id": "4a7cd099-6115-4f03-ac91-25245fe74fdb",
+              "query": "年假提前几天申请"
+            },
+            "mode": "real",
+            "observation": {
+              "ok": true,
+              "summary": "读取 1 个原文块",
+              "document_ids": [
+                "4a7cd099-6115-4f03-ac91-25245fe74fdb"
+              ],
+              "security_warnings": []
+            }
+          },
+          {
+            "step": 3,
+            "action": "finish",
+            "arguments": {},
+            "mode": "real"
+          }
+        ],
+        "mode": "real",
+        "metrics": {
+          "duration_ms": 7510.07,
+          "model": "deepseek-v4-flash",
+          "mode": "real",
+          "steps": 3,
+          "tool_calls": 2,
+          "retrieval_calls": 1,
+          "read_calls": 1,
+          "model_calls": 3,
+          "usage": {
+            "input_tokens": 3539,
+            "output_tokens": 214,
+            "total_tokens": 3753
+          },
+          "query_rewrite_method": "none",
+          "query_rewrite_fallback": null,
+          "request_id": "5c0f8ace6f6f408fa3fcad41a71a4f7e"
+        }
+      }
+    }
+  ]
+}

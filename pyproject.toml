@@ -27,6 +27,7 @@ local-rag = ["sentence-transformers>=3,<4"]
 [project.scripts]
 knowledge-agent = "knowledge_agent.cli:main"
 knowledge-agent-server = "knowledge_agent.server:main"
+knowledge-agent-eval = "knowledge_agent.evaluation:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -158,7 +158,10 @@ def _parse_docx(data: bytes, settings: Settings) -> ParseResult:
             paragraph = next(paragraphs, None)
             if paragraph is None:
                 continue
-            parts = [paragraph.text.strip()]
+            style_name = getattr(paragraph.style, "name", "") or ""
+            heading_match = re.search(r"(?:Heading|标题)\s*([1-6])", style_name, re.IGNORECASE)
+            heading_prefix = "#" * int(heading_match.group(1)) + " " if heading_match else ""
+            parts = [f"{heading_prefix}{paragraph.text.strip()}".strip()]
             if settings.parse_embedded_images:
                 for image in _docx_paragraph_images(paragraph, document):
                     digest = hashlib.sha256(image).hexdigest()
