@@ -212,7 +212,7 @@ def make_tools(
         )
         if matched:
             best = matched[0][0]
-            threshold = max(1, best // 2)
+            threshold = max(1, (best * 3 + 3) // 4)
             chosen = [
                 chunk for score, chunk in matched
                 if score >= threshold
@@ -559,6 +559,33 @@ def _natural_fallback(query_topics: set[str], reads: list[dict]) -> str:
     return "；".join(unique)
 
 
+def _query_numeric_facts(question: str, reads: list[dict]) -> tuple[set[tuple[str, ...]], int]:
+    query_terms = terms(question) - GENERIC_TERMS
+    exact_tokens = re.findall(r"[a-zA-Z]{1,10}[-_]?\d+|\d{3,}", question.lower())
+    facts: set[tuple[str, ...]] = set()
+    matched_reads = 0
+    for read in reads:
+        best_unit = None
+        best_overlap = 0
+        for chunk in read.get("chunks", []):
+            for line in chunk.get("text", "").splitlines():
+                units = [line] if "|" in line else re.split(r"[，,；;。!?！？]+", line)
+                for unit in units:
+                    value = unit.strip()
+                    if not value or not re.search(r"\d", value):
+                        continue
+                    if exact_tokens and not any(token in value.lower() for token in exact_tokens):
+                        continue
+                    overlap = len(query_terms & terms(value))
+                    if overlap > best_overlap:
+                        best_unit = value
+                        best_overlap = overlap
+        if best_unit and best_overlap > 0:
+            facts.add(tuple(re.findall(r"\d+(?:\.\d+)?", best_unit)))
+            matched_reads += 1
+    return facts, matched_reads
+
+
 def _assemble(
     question: str,
     messages: list[BaseMessage],
@@ -619,13 +646,8 @@ def _assemble(
         for read in reads
         if any(query_topics & (terms(chunk["text"]) - GENERIC_TERMS) for chunk in read.get("chunks", []))
     ]
-    numeric_facts = {
-        tuple(re.findall(r"\d+(?:\.\d+)?", chunk["text"]))
-        for read in relevant_reads
-        for chunk in read.get("chunks", [])
-        if re.search(r"\d", chunk["text"])
-    }
-    conflict = len(relevant_reads) > 1 and len(numeric_facts) > 1
+    numeric_facts, matched_numeric_reads = _query_numeric_facts(question, relevant_reads)
+    conflict = matched_numeric_reads > 1 and len(numeric_facts) > 1
     if conflict:
         return AgentResult("检索到多份制度原文，当前证据存在可能冲突，不能在缺少适用范围或优先级时擅自选择。", "needs_clarification", citations, ["需要确认适用地区、员工范围或制度优先级。"], "请确认本问题适用的地区/员工范围，或指定优先制度。", trace, settings.mode)
     answer = _strip_answer_metadata(str(final_message.content)) if final_message else _natural_fallback(query_topics, reads)

@@ -1,5 +1,6 @@
-from knowledge_agent.agent import _strip_answer_metadata, run_agent
+from knowledge_agent.agent import _strip_answer_metadata, make_tools, run_agent
 from knowledge_agent.config import Settings
+from knowledge_agent.ingestion import build_kb
 from knowledge_agent.persistence import Store
 from knowledge_agent.query_rewrite import ConversationQueryRewriter
 from knowledge_agent.routing import RetrievalGate
@@ -65,3 +66,32 @@ def test_answer_metadata_is_removed_but_natural_body_is_kept():
     answer = "**第三次讲座**介绍了工程管理研究。\n\n来源：某文档（2026-01-01）"
 
     assert _strip_answer_metadata(answer) == "第三次讲座介绍了工程管理研究。"
+
+
+def test_read_document_selects_the_chunk_matching_the_specific_entity(tmp_path):
+    store = Store(tmp_path / "read-ranking.db")
+    kb = store.create_kb("read-ranking")
+    text = (
+        "第一次讲座介绍材料研究。\n\n"
+        "第二次讲座介绍火灾模拟。\n\n"
+        "第三次讲座介绍工程管理与价值共创。"
+    )
+    doc_id, _created = store.add_document(
+        kb["id"], "lectures.md", "讲座记录", "2026-01-01", "全体员工",
+        text, "hash-lectures",
+    )
+    build_kb(store, kb["id"], Settings(db_path=tmp_path / "read-ranking.db", chunk_size=20, chunk_overlap=0))
+    tools = make_tools(
+        store,
+        kb["id"],
+        Settings(db_path=tmp_path / "read-ranking.db"),
+        "第三次讲座讲了什么？",
+        "第三次讲座 工程管理",
+    )
+    read_tool = next(tool for tool in tools if tool.name == "read_document")
+
+    payload = read_tool.invoke({"document_id": doc_id, "query": "第三次讲座 工程管理"})
+
+    assert "第三次讲座" in payload
+    assert "第一次讲座" not in payload
+    assert "第二次讲座" not in payload
