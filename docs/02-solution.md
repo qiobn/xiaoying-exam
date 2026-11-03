@@ -24,7 +24,7 @@
 | 质量工具 | Ruff | 格式和静态错误检查，依赖轻量 |
 | 配置 | 环境变量；真实模型变量写入 .env.example | 无密钥默认运行 Mock；密钥不进代码或 Trace |
 
-默认问答模式为离线 Mock，不包含模型权重；真实模式调用 LangChain ChatOpenAI，默认模型名为 `gpt-4o-mini`，可由 OpenAI-compatible 环境变量覆盖。当前 embedding 为 `none`，检索采用 jieba + BM25，不存在向量索引。PDF 使用可选 MinerU 优先、PyMuPDF 文本抽取回退；无文本的扫描 PDF 和图片使用已安装的 Tesseract OCR。
+默认问答模式为离线 Mock，不包含模型权重；真实模式调用 LangChain ChatOpenAI，默认模型名为 `gpt-4o-mini`，可由 OpenAI-compatible 环境变量覆盖。当前 embedding 为 `none`，检索采用 jieba + BM25，不存在向量索引。PDF 使用可选 MinerU 优先、PyMuPDF 文本与表格抽取回退；无文本的扫描 PDF 和图片使用 Tesseract OCR，并可选择启用视觉模型描述图表和复杂版面。
 
 ## 3. 逻辑架构
 
@@ -51,7 +51,9 @@
       tools.py               # LangChain @tool 与结构化工具结果
       repository.py          # 读取源文档
       ingestion.py           # 切分和索引流程
-      parsers.py             # TXT/Markdown/DOCX/PDF/图片统一解析，MinerU/Tesseract 适配
+      parsers.py             # 稳定解析入口
+      document_parsers.py    # TXT/CSV/DOCX/PDF/图片统一解析，表格/MinerU/OCR/视觉适配
+      semantic_chunking.py   # LLM 行号语义分块与确定性降级
       persistence.py         # SQLite schema、事务与 run journal
       retrieval.py           # 规范化、扩展和排序
       evidence.py            # 原文引用校验和冲突处理
@@ -209,7 +211,7 @@ JSONL 每行至少有 document_id、title、version_date、scope、content、syn
 
 ### 文档与切片
 
-JSONL 资料至少含 document_id、title、version_date、scope、status、source_type、content、synthetic；可选 section_path、valid_from、valid_to、supersedes、topic/entity tags。考试提供 FAQ/制度和片段读取工具，首版直接以明确条款/FAQ 为切片，不开发通用 PDF 入库。未来支持文件时保存原始 hash、解析器/版本、切片参数与原文 offset；按标题、段落、表格结构切，避免前提和规则值分离；表格转文本时保留列名与来源定位。
+JSONL 资料至少含 document_id、title、version_date、scope、status、source_type、content、synthetic；可选 section_path、valid_from、valid_to、supersedes、topic/entity tags。文件入库保存原始 hash、解析器/版本、表格与图片统计、切片方法和原文 offset。CSV/DOCX/PDF 表格统一转换为 Markdown，表格块保持标题、表头和数据行原子性；DOCX/PDF 图片保留说明与 OCR 文本，图片 URL 或二进制不作为检索噪声。LLM 只生成行号边界和切片标题，正文按原文 offset 回填；模型不可用、返回非法 JSON 或超时时降级到结构感知分块。
 
 ### 检索评测
 
@@ -338,7 +340,7 @@ Web UI 是可运行功能而非截图或静态原型。前端展示的检索、c
 | `GET /api/runs/{id}` | run 状态/最终结果 | 状态与连接生命周期分离 |
 | `GET /api/runs/{id}/events` | SSE 事件流 | seq/event_id 游标回放、重连去重与终态事件 |
 
-文档摄取链路：文件校验 -> 文本解析 -> chunk 切分 -> 生成 breadcrumb 检索文本 -> SQLite 事务写入索引。每个 chunk 保留 document_id、chunk_id、原文 offset 和检索文本，使引用能反向定位；标题和适用范围只进入检索字段，不伪装成 quote。格式先覆盖 TXT/Markdown/PDF/DOCX；扫描 PDF/OCR、表格结构恢复可列为明确限制，不能静默当作空文档成功。
+文档摄取链路：文件校验 -> 文本/表格/图片解析 -> 智能或结构感知 chunk 切分 -> 生成 breadcrumb 检索文本 -> SQLite 事务写入索引。每个 chunk 保留 document_id、chunk_id、原文 offset、section_path、chunk_method 和检索文本，使引用能反向定位；标题和适用范围只进入检索字段，不伪装成 quote。格式覆盖 TXT/Markdown/CSV/PDF/DOCX 与常见图片；扫描 PDF/OCR、复杂图表和未安装视觉模型时记录 warning，不能静默当作解析成功。
 
 问答链路沿用 AgentLoop：用户/有限历史 -> search -> 模型观察结果并决定 read/补充 search/ask_user/finish -> 引用验证与冲突汇总 -> SSE + 持久 Trace。检索调试 API 与 Agent 工具调用复用同一 Retriever，避免两套排序逻辑。文档原文和工具输出均视为不可信输入并与系统指令隔离。
 

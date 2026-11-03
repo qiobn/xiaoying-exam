@@ -42,7 +42,7 @@ def test_image_without_ocr_fails_explicitly(tmp_path, monkeypatch):
     from knowledge_agent.config import Settings
     from knowledge_agent.parsers import parse_attachment
 
-    monkeypatch.setattr("knowledge_agent.parsers.shutil.which", lambda _name: None)
+    monkeypatch.setattr("knowledge_agent.document_parsers.shutil.which", lambda _name: None)
     try:
         parse_attachment("scan.png", b"not-a-real-image", Settings(tesseract_command="missing-tesseract"))
     except ValueError as exc:

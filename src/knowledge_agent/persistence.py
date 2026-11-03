@@ -37,12 +37,13 @@ class Store:
                 filename TEXT NOT NULL, title TEXT NOT NULL, version_date TEXT NOT NULL,
                 scope TEXT NOT NULL, content TEXT NOT NULL, status TEXT NOT NULL,
                 sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
-                parser_name TEXT NOT NULL DEFAULT '', parser_method TEXT NOT NULL DEFAULT '', parse_warnings TEXT NOT NULL DEFAULT '[]');
+                parser_name TEXT NOT NULL DEFAULT '', parser_method TEXT NOT NULL DEFAULT '',
+                parse_warnings TEXT NOT NULL DEFAULT '[]', parse_metadata TEXT NOT NULL DEFAULT '{}');
               CREATE TABLE IF NOT EXISTS chunks(
                 id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
                 ordinal INTEGER NOT NULL, text TEXT NOT NULL, start_offset INTEGER NOT NULL,
                 end_offset INTEGER NOT NULL, retrieval_text TEXT NOT NULL DEFAULT '',
-                section_path TEXT NOT NULL DEFAULT '');
+                section_path TEXT NOT NULL DEFAULT '', chunk_method TEXT NOT NULL DEFAULT 'structured');
               CREATE TABLE IF NOT EXISTS sessions(
                 id TEXT PRIMARY KEY, kb_id TEXT NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
                 title TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -67,8 +68,15 @@ class Store:
                 db.execute("ALTER TABLE chunks ADD COLUMN retrieval_text TEXT NOT NULL DEFAULT ''")
             if "section_path" not in columns:
                 db.execute("ALTER TABLE chunks ADD COLUMN section_path TEXT NOT NULL DEFAULT ''")
+            if "chunk_method" not in columns:
+                db.execute("ALTER TABLE chunks ADD COLUMN chunk_method TEXT NOT NULL DEFAULT 'structured'")
             document_columns = {row["name"] for row in db.execute("PRAGMA table_info(documents)").fetchall()}
-            for name, definition in (("parser_name", "TEXT NOT NULL DEFAULT ''"), ("parser_method", "TEXT NOT NULL DEFAULT ''"), ("parse_warnings", "TEXT NOT NULL DEFAULT '[]'")):
+            for name, definition in (
+                ("parser_name", "TEXT NOT NULL DEFAULT ''"),
+                ("parser_method", "TEXT NOT NULL DEFAULT ''"),
+                ("parse_warnings", "TEXT NOT NULL DEFAULT '[]'"),
+                ("parse_metadata", "TEXT NOT NULL DEFAULT '{}'"),
+            ):
                 if name not in document_columns:
                     db.execute(f"ALTER TABLE documents ADD COLUMN {name} {definition}")
             run_columns = {row["name"] for row in db.execute("PRAGMA table_info(runs)").fetchall()}
@@ -99,11 +107,25 @@ class Store:
             row = db.execute("SELECT * FROM knowledge_bases WHERE id=?", (kb_id,)).fetchone()
         return dict(row) if row else None
 
-    def add_document(self, kb_id: str, filename: str, title: str, version_date: str, scope: str, content: str, sha256: str, parser_name: str = "", parser_method: str = "", parse_warnings: list[str] | None = None):
+    def add_document(
+        self,
+        kb_id: str,
+        filename: str,
+        title: str,
+        version_date: str,
+        scope: str,
+        content: str,
+        sha256: str,
+        parser_name: str = "",
+        parser_method: str = "",
+        parse_warnings: list[str] | None = None,
+        parse_metadata: dict | None = None,
+    ):
         result = self.add_documents(kb_id, [{
             "filename": filename, "title": title, "version_date": version_date, "scope": scope,
             "content": content, "sha256": sha256, "parser_name": parser_name,
             "parser_method": parser_method, "parse_warnings": parse_warnings or [],
+            "parse_metadata": parse_metadata or {},
         }])
         return result[0]
 
@@ -122,12 +144,13 @@ class Store:
                     continue
                 doc_id = str(uuid.uuid4())
                 db.execute(
-                    """INSERT INTO documents(id,kb_id,filename,title,version_date,scope,content,status,sha256,created_at,parser_name,parser_method,parse_warnings)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    """INSERT INTO documents(id,kb_id,filename,title,version_date,scope,content,status,sha256,created_at,parser_name,parser_method,parse_warnings,parse_metadata)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (doc_id, kb_id, item["filename"], item["title"], item["version_date"],
                      item["scope"], item["content"], "uploaded", item["sha256"], now_iso(),
                      item.get("parser_name", ""), item.get("parser_method", ""),
-                     json.dumps(item.get("parse_warnings", []), ensure_ascii=False)),
+                     json.dumps(item.get("parse_warnings", []), ensure_ascii=False),
+                     json.dumps(item.get("parse_metadata", {}), ensure_ascii=False)),
                 )
                 results.append((doc_id, True))
             if any(created for _, created in results):
@@ -135,6 +158,8 @@ class Store:
         return results
 
     def build(self, kb_id: str, chunker):
+        chunk_count = 0
+        chunk_methods: dict[str, int] = {}
         with self.connect() as db:
             docs = db.execute("SELECT * FROM documents WHERE kb_id=?", (kb_id,)).fetchall()
             for doc in docs:
@@ -143,17 +168,21 @@ class Store:
                     if isinstance(piece, tuple):
                         text, start, end = piece
                         section_path = ""
+                        chunk_method = "structured"
                     else:
                         text, start, end = piece.text, piece.start, piece.end
                         section_path = piece.section_path
+                        chunk_method = getattr(piece, "method", "structured")
                     retrieval_text = "\n".join(filter(None, (doc["title"], doc["scope"], section_path, text)))
                     db.execute(
-                        "INSERT INTO chunks(id,document_id,ordinal,text,start_offset,end_offset,retrieval_text,section_path) VALUES(?,?,?,?,?,?,?,?)",
-                        (str(uuid.uuid4()), doc["id"], i, text, start, end, retrieval_text, section_path),
+                        "INSERT INTO chunks(id,document_id,ordinal,text,start_offset,end_offset,retrieval_text,section_path,chunk_method) VALUES(?,?,?,?,?,?,?,?,?)",
+                        (str(uuid.uuid4()), doc["id"], i, text, start, end, retrieval_text, section_path, chunk_method),
                     )
+                    chunk_count += 1
+                    chunk_methods[chunk_method] = chunk_methods.get(chunk_method, 0) + 1
                 db.execute("UPDATE documents SET status='indexed' WHERE id=?", (doc["id"],))
             db.execute("UPDATE knowledge_bases SET status='ready', index_version=index_version+1 WHERE id=?", (kb_id,))
-        return len(docs)
+        return {"documents": len(docs), "chunks": chunk_count, "chunk_methods": chunk_methods}
 
     def clear_embeddings(self, kb_id: str):
         with self.connect() as db:
@@ -171,12 +200,13 @@ class Store:
     def documents(self, kb_id: str):
         with self.connect() as db:
             rows = db.execute("""SELECT d.id,d.kb_id,d.filename,d.title,d.version_date,d.scope,d.status,d.parser_name,d.parser_method,d.parse_warnings,
-                length(d.content) character_count,count(c.id) chunk_count
+                d.parse_metadata,length(d.content) character_count,count(c.id) chunk_count
                 FROM documents d LEFT JOIN chunks c ON c.document_id=d.id
                 WHERE d.kb_id=? GROUP BY d.id ORDER BY d.created_at""", (kb_id,)).fetchall()
         values = [dict(r) for r in rows]
         for item in values:
             item["parse_warnings"] = json.loads(item["parse_warnings"] or "[]")
+            item["parse_metadata"] = json.loads(item["parse_metadata"] or "{}")
         return values
 
     def chunks(self, document_id: str):

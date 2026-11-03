@@ -91,9 +91,23 @@ class SettingsUpdate(BaseModel):
     mineru_method: str | None = None
     tesseract_command: str | None = None
     tesseract_lang: str | None = None
+    chunk_strategy: str | None = None
+    chunk_llm_model: str | None = None
+    chunk_llm_min_chars: int | None = Field(default=None, ge=300, le=100000)
+    chunk_llm_max_chars: int | None = Field(default=None, ge=1000, le=100000)
+    chunk_llm_timeout_seconds: int | None = Field(default=None, ge=5, le=300)
+    parse_pdf_tables: bool | None = None
+    parse_embedded_images: bool | None = None
+    vision_enabled: bool | None = None
+    vision_model: str | None = None
+    vision_api_url: str | None = None
+    vision_api_key: str | None = None
+    vision_timeout_seconds: int | None = Field(default=None, ge=5, le=300)
+    max_embedded_images: int | None = Field(default=None, ge=0, le=200)
     clear_api_key: bool = False
     clear_rerank_api_key: bool = False
     clear_embedding_api_key: bool = False
+    clear_vision_api_key: bool = False
 
 
 def _valid_date(value: str) -> bool:
@@ -137,6 +151,19 @@ def get_settings():
         "mineru_method": settings.mineru_method,
         "tesseract_command": settings.tesseract_command,
         "tesseract_lang": settings.tesseract_lang,
+        "chunk_strategy": settings.chunk_strategy,
+        "chunk_llm_model": settings.chunk_llm_model,
+        "chunk_llm_min_chars": settings.chunk_llm_min_chars,
+        "chunk_llm_max_chars": settings.chunk_llm_max_chars,
+        "chunk_llm_timeout_seconds": settings.chunk_llm_timeout_seconds,
+        "parse_pdf_tables": settings.parse_pdf_tables,
+        "parse_embedded_images": settings.parse_embedded_images,
+        "vision_enabled": settings.vision_enabled,
+        "vision_model": settings.vision_model,
+        "vision_api_url": settings.vision_api_url or "",
+        "vision_api_key_configured": bool(settings.vision_api_key),
+        "vision_timeout_seconds": settings.vision_timeout_seconds,
+        "max_embedded_images": settings.max_embedded_images,
         "settings_file": "settings/.env",
     }
 
@@ -147,7 +174,11 @@ def update_settings(payload: SettingsUpdate):
     updates = payload.model_dump(exclude_unset=True)
     if updates.get("mode") not in {None, "mock", "real"}:
         raise HTTPException(400, "mode 仅支持 mock 或 real")
-    choices = {"embedding_backend": {"none", "local", "openai", "openai_compatible"}, "rerank_backend": {"none", "local", "dashscope", "http"}}
+    choices = {
+        "embedding_backend": {"none", "local", "openai", "openai_compatible"},
+        "rerank_backend": {"none", "local", "dashscope", "http"},
+        "chunk_strategy": {"auto", "structured", "llm"},
+    }
     for field, options in choices.items():
         if updates.get(field) is not None and updates[field] not in options:
             raise HTTPException(400, f"{field} 必须是以下值之一：{', '.join(sorted(options))}")
@@ -157,6 +188,8 @@ def update_settings(payload: SettingsUpdate):
         updates.pop("rerank_api_key", None)
     if not updates.get("embedding_api_key"):
         updates.pop("embedding_api_key", None)
+    if not updates.get("vision_api_key"):
+        updates.pop("vision_api_key", None)
     settings = save_settings(updates)
     return get_settings()
 
@@ -201,7 +234,11 @@ def capabilities():
                         "pdf": {"available": True, "method": "MinerU" if settings.mineru_command else "PyMuPDF；扫描件回退 Tesseract"},
                         "mineru": {"available": bool(settings.mineru_command and (shutil.which(settings.mineru_command) or Path(settings.mineru_command).exists()))},
                         "ocr": {"available": bool(shutil.which(settings.tesseract_command) or Path(settings.tesseract_command).exists()), "language": settings.tesseract_lang},
-                        "extensions": sorted(SUPPORTED_EXTENSIONS), "max_upload_bytes": settings.max_upload_bytes}}
+                        "tables": {"available": True, "pdf": settings.parse_pdf_tables, "csv": True},
+                        "vision": {"enabled": settings.vision_enabled, "model": settings.vision_model or settings.model},
+                        "extensions": sorted(SUPPORTED_EXTENSIONS), "max_upload_bytes": settings.max_upload_bytes},
+            "chunking": {"strategy": settings.chunk_strategy, "target_chars": settings.chunk_size,
+                         "overlap": settings.chunk_overlap, "llm_model": settings.chunk_llm_model or settings.model}}
 
 
 @app.get("/api/knowledge-bases")
@@ -233,9 +270,25 @@ async def upload(kb_id: str, file: UploadFile = File(...), version_date: str = F
     except (ValueError, OSError, RuntimeError) as exc: raise HTTPException(400, f"文件解析失败：{exc}") from exc
     text = parsed.text
     if not text.strip(): raise HTTPException(400, "文件未提取到可索引文本，请检查文档内容或 OCR 语言包")
-    doc_id, created = store.add_document(kb_id, file.filename or "upload.txt", Path(file.filename or "upload.txt").stem, version_date, scope, text, sha256(data), parsed.parser, parsed.method, parsed.warnings)
-    store.add_build_event(kb_id, "document_parsed", {"document_id": doc_id, "filename": file.filename or "upload.txt", "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings, "characters": len(text), "created": created})
-    return {"document_id": doc_id, "created": created, "characters": len(text), "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings}
+    doc_id, created = store.add_document(
+        kb_id,
+        file.filename or "upload.txt",
+        Path(file.filename or "upload.txt").stem,
+        version_date,
+        scope,
+        text,
+        sha256(data),
+        parsed.parser,
+        parsed.method,
+        parsed.warnings,
+        parsed.metadata,
+    )
+    store.add_build_event(kb_id, "document_parsed", {
+        "document_id": doc_id, "filename": file.filename or "upload.txt",
+        "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings,
+        "characters": len(text), "metadata": parsed.metadata, "created": created,
+    })
+    return {"document_id": doc_id, "created": created, "characters": len(text), "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings, "metadata": parsed.metadata}
 
 
 @app.post("/api/knowledge-bases/{kb_id}/build")
@@ -245,13 +298,19 @@ def build(kb_id: str):
     started = time.perf_counter()
     store.add_build_event(kb_id, "build_started", {"documents": len(store.documents(kb_id))})
     try:
-        count = build_kb(store, kb_id, settings)
+        report = build_kb(store, kb_id, settings)
     except Exception as exc:
         store.add_build_event(kb_id, "build_failed", {"error": str(exc)[:240]})
         raise HTTPException(500, "知识库构建失败；原索引保持不变") from exc
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
-    store.add_build_event(kb_id, "build_finished", {"documents": count, "duration_ms": duration_ms})
-    return {"status": "ready", "documents": count, "duration_ms": duration_ms, "index_version": kb["index_version"] + 1}
+    store.add_build_event(kb_id, "build_finished", {
+        "documents": report.documents,
+        "chunks": report.chunks,
+        "chunk_methods": report.chunk_methods,
+        "diagnostics": report.diagnostics,
+        "duration_ms": duration_ms,
+    })
+    return {"status": "ready", **report.to_dict(), "duration_ms": duration_ms, "index_version": kb["index_version"] + 1}
 
 
 @app.get("/api/documents/{document_id}/chunks")
@@ -330,12 +389,13 @@ async def execute_run(run_id: str, session_id: str, payload: RunIn, attachments:
             parsed_attachments.append((filename, data, parsed))
         documents = [{"filename": filename, "title": Path(filename).stem, "version_date": date.today().isoformat(),
                       "scope": "当前会话附件", "content": parsed.text, "sha256": sha256(data),
-                      "parser_name": parsed.parser, "parser_method": parsed.method, "parse_warnings": parsed.warnings}
+                      "parser_name": parsed.parser, "parser_method": parsed.method,
+                      "parse_warnings": parsed.warnings, "parse_metadata": parsed.metadata}
                      for filename, data, parsed in parsed_attachments]
         stored = store.add_documents(session["kb_id"], documents) if documents else []
         for (filename, _data, parsed), (doc_id, created) in zip(parsed_attachments, stored):
             attachment_ids.append(doc_id)
-            store.add_event(run_id, "attachment_parsed", {"filename": filename, "document_id": doc_id, "created": created, "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings, "characters": len(parsed.text)})
+            store.add_event(run_id, "attachment_parsed", {"filename": filename, "document_id": doc_id, "created": created, "parser": parsed.parser, "method": parsed.method, "warnings": parsed.warnings, "metadata": parsed.metadata, "characters": len(parsed.text)})
         if attachment_ids:
             store.add_event(run_id, "attachment_indexing", {"documents": len(attachment_ids)})
             await asyncio.to_thread(build_kb, store, session["kb_id"], settings)

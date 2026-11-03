@@ -42,3 +42,28 @@ def test_web_vertical_slice(tmp_path, monkeypatch):
     assert duplicate.json()['created'] is False
     invalid_date = client.post(f"/api/knowledge-bases/{kb['id']}/documents", data={'version_date': '2026/01/01'}, files={'file': ('other.md', '新的制度'.encode(), 'text/markdown')})
     assert invalid_date.status_code == 400
+
+
+def test_csv_upload_builds_structured_table_chunk(tmp_path):
+    from knowledge_agent import api
+    from knowledge_agent.config import Settings
+    from knowledge_agent.persistence import Store
+
+    api.store = Store(tmp_path / "csv.db")
+    api.settings = Settings(mode="mock", db_path=tmp_path / "csv.db")
+    client = TestClient(app)
+    kb = client.post("/api/knowledge-bases", json={"name": "表格库"}).json()
+    uploaded = client.post(
+        f"/api/knowledge-bases/{kb['id']}/documents",
+        files={"file": ("limits.csv", "城市,职级,额度\n上海,P5,500\n北京,P6,800\n".encode(), "text/csv")},
+    )
+    assert uploaded.status_code == 200
+    assert uploaded.json()["metadata"]["table_count"] == 1
+    built = client.post(f"/api/knowledge-bases/{kb['id']}/build")
+    assert built.status_code == 200
+    assert built.json()["chunk_methods"] == {"structured": 1}
+    document = client.get(f"/api/knowledge-bases/{kb['id']}/documents").json()[0]
+    assert document["parse_metadata"]["table_count"] == 1
+    chunks = client.get(f"/api/documents/{document['id']}/chunks").json()
+    assert "| 上海 | P5 | 500 |" in chunks[0]["text"]
+    assert chunks[0]["chunk_method"] == "structured"

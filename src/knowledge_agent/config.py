@@ -42,6 +42,19 @@ class Settings(BaseModel):
     max_upload_bytes: int = 10 * 1024 * 1024
     chunk_size: int = 420
     chunk_overlap: int = 60
+    chunk_strategy: str = "auto"
+    chunk_llm_model: str = ""
+    chunk_llm_min_chars: int = 1600
+    chunk_llm_max_chars: int = 12000
+    chunk_llm_timeout_seconds: int = 60
+    parse_pdf_tables: bool = True
+    parse_embedded_images: bool = True
+    vision_enabled: bool = False
+    vision_model: str = ""
+    vision_api_url: str | None = None
+    vision_api_key: str | None = None
+    vision_timeout_seconds: int = 60
+    max_embedded_images: int = 20
     max_steps: int = 6
     max_tool_calls: int = 8
 
@@ -118,6 +131,19 @@ def load_settings() -> Settings:
         max_upload_bytes=_env_int(values, "KNOWLEDGE_AGENT_MAX_UPLOAD_BYTES", 10 * 1024 * 1024),
         chunk_size=_env_int(values, "KNOWLEDGE_AGENT_CHUNK_SIZE", 420),
         chunk_overlap=_env_int(values, "KNOWLEDGE_AGENT_CHUNK_OVERLAP", 60),
+        chunk_strategy=values.get("CHUNK_STRATEGY") or "auto",
+        chunk_llm_model=values.get("CHUNK_LLM_MODEL") or "",
+        chunk_llm_min_chars=_env_int(values, "CHUNK_LLM_MIN_CHARS", 1600),
+        chunk_llm_max_chars=_env_int(values, "CHUNK_LLM_MAX_CHARS", 12000),
+        chunk_llm_timeout_seconds=_env_int(values, "CHUNK_LLM_TIMEOUT_SECONDS", 60),
+        parse_pdf_tables=str(values.get("PARSE_PDF_TABLES", "true")).lower() != "false",
+        parse_embedded_images=str(values.get("PARSE_EMBEDDED_IMAGES", "true")).lower() != "false",
+        vision_enabled=str(values.get("VISION_ENABLED", "false")).lower() == "true",
+        vision_model=values.get("VISION_MODEL") or "",
+        vision_api_url=values.get("VISION_API_URL") or None,
+        vision_api_key=values.get("VISION_API_KEY") or None,
+        vision_timeout_seconds=_env_int(values, "VISION_TIMEOUT_SECONDS", 60),
+        max_embedded_images=_env_int(values, "MAX_EMBEDDED_IMAGES", 20),
         max_steps=_env_int(values, "KNOWLEDGE_AGENT_MAX_STEPS", 6),
         max_tool_calls=_env_int(values, "KNOWLEDGE_AGENT_MAX_TOOL_CALLS", 8),
     )
@@ -140,6 +166,16 @@ def save_settings(updates: dict[str, Any]) -> Settings:
         "mineru_command": "MINERU_COMMAND", "mineru_server_url": "MINERU_SERVER_URL",
         "mineru_method": "MINERU_METHOD", "tesseract_command": "TESSERACT_COMMAND",
         "tesseract_lang": "TESSERACT_LANG",
+        "chunk_strategy": "CHUNK_STRATEGY", "chunk_llm_model": "CHUNK_LLM_MODEL",
+        "chunk_llm_min_chars": "CHUNK_LLM_MIN_CHARS",
+        "chunk_llm_max_chars": "CHUNK_LLM_MAX_CHARS",
+        "chunk_llm_timeout_seconds": "CHUNK_LLM_TIMEOUT_SECONDS",
+        "parse_pdf_tables": "PARSE_PDF_TABLES",
+        "parse_embedded_images": "PARSE_EMBEDDED_IMAGES",
+        "vision_enabled": "VISION_ENABLED", "vision_model": "VISION_MODEL",
+        "vision_api_url": "VISION_API_URL", "vision_api_key": "VISION_API_KEY",
+        "vision_timeout_seconds": "VISION_TIMEOUT_SECONDS",
+        "max_embedded_images": "MAX_EMBEDDED_IMAGES",
     }
     for field, env_name in key_map.items():
         if field in updates and updates[field] is not None:
@@ -150,6 +186,8 @@ def save_settings(updates: dict[str, Any]) -> Settings:
         current.pop("EMBEDDING_API_KEY", None)
     if updates.get("clear_rerank_api_key"):
         current.pop("RERANK_API_KEY", None)
+    if updates.get("clear_vision_api_key"):
+        current.pop("VISION_API_KEY", None)
     lines = [f"{key}={value}" for key, value in current.items()]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return load_settings()

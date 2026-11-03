@@ -1,26 +1,28 @@
 from __future__ import annotations
 
 import hashlib
-import io
-from pathlib import Path
+from dataclasses import asdict, dataclass
 
 from .chunking import StructuredChunker
 from .config import Settings
+from .semantic_chunking import SmartChunker
+
+
+@dataclass
+class BuildReport:
+    documents: int
+    chunks: int
+    chunk_methods: dict[str, int]
+    diagnostics: list[dict]
+
+    def to_dict(self):
+        return asdict(self)
 
 
 def extract_text(filename: str, data: bytes) -> str:
-    suffix = Path(filename).suffix.lower()
-    if suffix in {".txt", ".md", ".markdown"}:
-        return data.decode("utf-8-sig", errors="replace")
-    if suffix == ".pdf":
-        from pypdf import PdfReader
-        reader = PdfReader(io.BytesIO(data))
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
-    if suffix == ".docx":
-        from docx import Document
-        doc = Document(io.BytesIO(data))
-        return "\n".join(p.text for p in doc.paragraphs)
-    raise ValueError("仅支持 TXT、Markdown、PDF 和 DOCX 文件")
+    from .parsers import parse_attachment
+
+    return parse_attachment(filename, data, Settings()).text
 
 
 def split_chunks(text: str, size: int, overlap: int):
@@ -36,10 +38,15 @@ def sha256(data: bytes):
 
 
 def build_kb(store, kb_id: str, settings: Settings):
-    chunker = StructuredChunker(settings.chunk_size, settings.chunk_overlap)
-    count = store.build(kb_id, chunker.split)
+    chunker = SmartChunker(settings)
+    result = store.build(kb_id, chunker.split)
     if settings.embedding_backend == "none":
-        return count
+        return BuildReport(
+            documents=result["documents"],
+            chunks=result["chunks"],
+            chunk_methods=result["chunk_methods"],
+            diagnostics=chunker.diagnostics_history,
+        )
     from .retrieval_models import embed_texts
 
     chunks = store.all_chunks(kb_id)
@@ -47,4 +54,16 @@ def build_kb(store, kb_id: str, settings: Settings):
     if diagnostic.ok and len(vectors) == len(chunks):
         store.clear_embeddings(kb_id)
         store.save_embeddings([(chunk["id"], settings.embedding_model, vector) for chunk, vector in zip(chunks, vectors)])
-    return count
+    report = BuildReport(
+        documents=result["documents"],
+        chunks=result["chunks"],
+        chunk_methods=result["chunk_methods"],
+        diagnostics=chunker.diagnostics_history,
+    )
+    report.diagnostics.append({
+        "embedding_backend": settings.embedding_backend,
+        "embedding_model": settings.embedding_model,
+        "embedding_ok": diagnostic.ok,
+        "embedding_error": diagnostic.error,
+    })
+    return report

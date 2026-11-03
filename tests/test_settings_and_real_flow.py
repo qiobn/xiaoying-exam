@@ -13,10 +13,20 @@ def test_settings_api_persists_and_applies_local_config(tmp_path, monkeypatch):
     api.store = Store(tmp_path / "api.db")
     api.settings = api.load_settings()
     client = TestClient(api.app)
-    saved = client.put("/api/settings", json={"mode": "real", "model": "test-model", "base_url": "http://localhost:9999/v1"})
+    saved = client.put("/api/settings", json={
+        "mode": "real",
+        "model": "test-model",
+        "base_url": "http://localhost:9999/v1",
+        "chunk_strategy": "llm",
+        "parse_pdf_tables": False,
+        "vision_enabled": True,
+    })
     assert saved.status_code == 200
     assert saved.json()["mode"] == "real"
     assert saved.json()["model"] == "test-model"
+    assert saved.json()["chunk_strategy"] == "llm"
+    assert saved.json()["parse_pdf_tables"] is False
+    assert saved.json()["vision_enabled"] is True
     assert saved.json()["api_key_configured"] is False
     saved_secret = client.put("/api/settings", json={"api_key": "not-a-real-secret"})
     assert saved_secret.status_code == 200

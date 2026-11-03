@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .table_utils import is_markdown_table_start
+
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 _FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 
@@ -13,6 +15,7 @@ class ChunkPiece:
     start: int
     end: int
     section_path: str = ""
+    method: str = "structured"
 
 
 class StructuredChunker:
@@ -75,6 +78,55 @@ class StructuredChunker:
         return pieces
 
     def _split_section(self, text: str) -> list[tuple[str, int, int]]:
+        result: list[tuple[str, int, int]] = []
+        for start, end, is_table in self._section_units(text):
+            if is_table:
+                piece_start, piece_end = start, end
+                while piece_start < piece_end and text[piece_start].isspace():
+                    piece_start += 1
+                while piece_end > piece_start and text[piece_end - 1].isspace():
+                    piece_end -= 1
+                if piece_start < piece_end:
+                    result.append((text[piece_start:piece_end], piece_start, piece_end))
+                continue
+            result.extend(self._split_plain_span(text, start, end))
+        return result
+
+    def _section_units(self, text: str) -> list[tuple[int, int, bool]]:
+        lines = text.splitlines(keepends=True)
+        units: list[tuple[int, int, bool]] = []
+        offsets: list[int] = []
+        offset = 0
+        for line in lines:
+            offsets.append(offset)
+            offset += len(line)
+
+        normal_start = 0
+        index = 0
+        while index < len(lines):
+            plain_lines = [line.rstrip("\r\n") for line in lines]
+            if not is_markdown_table_start(plain_lines, index):
+                index += 1
+                continue
+            if offsets[index] > normal_start:
+                units.append((normal_start, offsets[index], False))
+            table_start = offsets[index]
+            index += 2
+            while index < len(lines):
+                stripped = lines[index].strip()
+                if not stripped or "|" not in stripped:
+                    break
+                index += 1
+            table_end = offsets[index] if index < len(lines) else len(text)
+            units.append((table_start, table_end, True))
+            normal_start = table_end
+        if normal_start < len(text):
+            units.append((normal_start, len(text), False))
+        return units or [(0, len(text), False)]
+
+    def _split_plain_span(self, text: str, start: int, end: int) -> list[tuple[str, int, int]]:
+        base_start = start
+        text = text[start:end]
         content_end = len(text.rstrip())
         start = len(text) - len(text.lstrip())
         if start >= content_end:
@@ -96,7 +148,11 @@ class StructuredChunker:
             while piece_end > piece_start and text[piece_end - 1].isspace():
                 piece_end -= 1
             if piece_start < piece_end:
-                result.append((text[piece_start:piece_end], piece_start, piece_end))
+                result.append((
+                    text[piece_start:piece_end],
+                    base_start + piece_start,
+                    base_start + piece_end,
+                ))
             if end >= content_end:
                 break
             start = max(start + 1, end - self.overlap)

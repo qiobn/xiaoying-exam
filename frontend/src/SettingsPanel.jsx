@@ -14,6 +14,10 @@ const initial = {
   rerank_enabled: true, rerank_backend: 'local', rerank_model: 'BAAI/bge-reranker-base', rerank_device: 'cpu', rerank_top_k: 8, rerank_api_url: '', rerank_api_key: '', rerank_api_key_configured: false,
   mineru_command: '', mineru_server_url: '', mineru_method: 'auto',
   tesseract_command: 'tesseract', tesseract_lang: 'chi_sim+eng',
+  chunk_strategy: 'auto', chunk_llm_model: '', chunk_llm_min_chars: 1600, chunk_llm_max_chars: 12000, chunk_llm_timeout_seconds: 60,
+  parse_pdf_tables: true, parse_embedded_images: true,
+  vision_enabled: false, vision_model: '', vision_api_url: '', vision_api_key: '', vision_api_key_configured: false,
+  vision_timeout_seconds: 60, max_embedded_images: 20,
 };
 
 export default function SettingsPanel({ capabilities, onSaved }) {
@@ -24,9 +28,10 @@ export default function SettingsPanel({ capabilities, onSaved }) {
   const [connection, setConnection] = useState(null);
   const [clearKey, setClearKey] = useState(false);
   const [clearRerankKey, setClearRerankKey] = useState(false);
+  const [clearVisionKey, setClearVisionKey] = useState(false);
 
   useEffect(() => {
-    api('/api/settings').then(value => setForm(current => ({ ...current, ...value, api_key: '', embedding_api_key: '', rerank_api_key: '' })))
+    api('/api/settings').then(value => setForm(current => ({ ...current, ...value, api_key: '', embedding_api_key: '', rerank_api_key: '', vision_api_key: '' })))
       .catch(error => setMessage(error.message));
   }, []);
 
@@ -35,13 +40,14 @@ export default function SettingsPanel({ capabilities, onSaved }) {
     event.preventDefault();
     setBusy(true); setMessage('');
     try {
-      const payload = { ...form, clear_api_key: clearKey, clear_rerank_api_key: clearRerankKey };
+      const payload = { ...form, clear_api_key: clearKey, clear_rerank_api_key: clearRerankKey, clear_vision_api_key: clearVisionKey };
       if (!form.api_key) delete payload.api_key;
       if (!form.rerank_api_key) delete payload.rerank_api_key;
       if (!form.embedding_api_key) delete payload.embedding_api_key;
+      if (!form.vision_api_key) delete payload.vision_api_key;
       const saved = await api('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      setForm(current => ({ ...current, ...saved, api_key: '', embedding_api_key: '', rerank_api_key: '' }));
-      setClearKey(false); setClearRerankKey(false); setMessage('配置已保存并立即应用；更换 Embedding 后请重建知识库索引'); setConnection(null);
+      setForm(current => ({ ...current, ...saved, api_key: '', embedding_api_key: '', rerank_api_key: '', vision_api_key: '' }));
+      setClearKey(false); setClearRerankKey(false); setClearVisionKey(false); setMessage('配置已保存并立即应用；更换分块、Embedding 或解析策略后请重建知识库索引'); setConnection(null);
       onSaved(await api('/api/capabilities'));
     } catch (error) { setMessage(`保存失败：${error.message}`); }
     finally { setBusy(false); }
@@ -52,6 +58,7 @@ export default function SettingsPanel({ capabilities, onSaved }) {
       const payload = { ...form };
       if (!form.api_key) delete payload.api_key;
       if (!form.rerank_api_key) delete payload.rerank_api_key;
+      if (!form.vision_api_key) delete payload.vision_api_key;
       const result = await api('/api/settings/test-model', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       setConnection(result);
     } catch (error) { setConnection({ ok: false, message: error.message }); }
@@ -89,6 +96,16 @@ export default function SettingsPanel({ capabilities, onSaved }) {
       <label className="form-field"><span>设备 / 候选数</span><div className="inline-fields"><select name="rerank_device" value={form.rerank_device} onChange={change}><option value="cpu">CPU</option><option value="cuda">CUDA</option><option value="mps">Apple MPS</option></select><input aria-label="Rerank 候选数" type="number" min="1" max="100" name="rerank_top_k" value={form.rerank_top_k} onChange={change} /></div></label>
       {form.rerank_backend === 'http' && <><label className="form-field"><span>Rerank API URL</span><input name="rerank_api_url" value={form.rerank_api_url} onChange={change} /></label><label className="form-field"><span>Rerank API Key {form.rerank_api_key_configured && <small>已配置，留空保留</small>}</span><input type="password" autoComplete="new-password" name="rerank_api_key" value={form.rerank_api_key} onChange={change} /></label>{form.rerank_api_key_configured && <label className="check-field"><input type="checkbox" checked={clearRerankKey} onChange={event => setClearRerankKey(event.target.checked)} /> 清除 Rerank API Key</label>}</>}
       <div className="setting-row"><div><b>Rerank 能力</b><small>{capabilities?.retrieval?.rerank?.dependency_installed ? '本地 sentence-transformers 依赖已安装' : '本地重排需要安装可选依赖；远程后端独立配置'}</small></div><span className="tag">{capabilities?.retrieval?.rerank?.available ? (capabilities?.retrieval?.rerank?.configured ? '可用' : '关闭') : '待安装依赖'}</span></div>
+      <h2>智能分块与图表理解</h2>
+      <label className="form-field"><span>文本分块策略</span><select name="chunk_strategy" value={form.chunk_strategy} onChange={change}><option value="auto">自动（普通长文使用 LLM）</option><option value="structured">标题与段落结构感知</option><option value="llm">LLM 语义分块（失败自动降级）</option></select></label>
+      <label className="form-field"><span>分块模型</span><input name="chunk_llm_model" value={form.chunk_llm_model} onChange={change} placeholder="留空复用问答模型" /></label>
+      <label className="form-field"><span>LLM 最小触发字符 / 单窗口上限</span><div className="inline-fields"><input aria-label="LLM 最小触发字符" type="number" min="300" name="chunk_llm_min_chars" value={form.chunk_llm_min_chars} onChange={change} /><input aria-label="LLM 单窗口上限" type="number" min="1000" name="chunk_llm_max_chars" value={form.chunk_llm_max_chars} onChange={change} /></div></label>
+      <label className="form-field"><span>分块模型超时（秒）</span><input type="number" min="5" max="300" name="chunk_llm_timeout_seconds" value={form.chunk_llm_timeout_seconds} onChange={change} /></label>
+      <label className="check-field"><input type="checkbox" checked={form.parse_pdf_tables} onChange={event => setForm(current => ({ ...current, parse_pdf_tables: event.target.checked }))} /> 提取 PDF 表格并转换为 Markdown</label>
+      <label className="check-field"><input type="checkbox" checked={form.parse_embedded_images} onChange={event => setForm(current => ({ ...current, parse_embedded_images: event.target.checked }))} /> 解析 DOCX/PDF 内嵌图片</label>
+      <label className="form-field"><span>单文档最多图片数</span><input type="number" min="0" max="200" name="max_embedded_images" value={form.max_embedded_images} onChange={change} /></label>
+      <label className="check-field"><input type="checkbox" checked={form.vision_enabled} onChange={event => setForm(current => ({ ...current, vision_enabled: event.target.checked }))} /> 启用视觉模型描述图表与截图</label>
+      {form.vision_enabled && <><label className="form-field"><span>视觉模型</span><input name="vision_model" value={form.vision_model} onChange={change} placeholder="留空复用问答模型" /></label><label className="form-field"><span>视觉 API Base URL</span><input name="vision_api_url" value={form.vision_api_url} onChange={change} placeholder="留空复用问答模型地址" /></label><label className="form-field"><span>视觉 API Key {form.vision_api_key_configured && <small>已配置，留空保留</small>}</span><input name="vision_api_key" type="password" autoComplete="new-password" value={form.vision_api_key} onChange={change} /></label><label className="form-field"><span>视觉超时（秒）</span><input type="number" min="5" max="300" name="vision_timeout_seconds" value={form.vision_timeout_seconds} onChange={change} /></label>{form.vision_api_key_configured && <label className="check-field"><input type="checkbox" checked={clearVisionKey} onChange={event => setClearVisionKey(event.target.checked)} /> 清除视觉 API Key</label>}</>}
       <h2>文档解析</h2>
       <div className="setting-row"><div><b>MinerU PDF 解析</b><small>命令和 HTTP 服务均可在下方配置；未配置时使用 PyMuPDF</small></div><span className="tag">{parsers?.mineru?.available ? '可用' : '未配置'}</span></div>
       <label className="form-field"><span>MinerU 命令</span><input name="mineru_command" value={form.mineru_command} onChange={change} placeholder="mineru 或本机完整路径" /></label>
