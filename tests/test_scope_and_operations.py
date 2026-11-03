@@ -63,9 +63,9 @@ def test_operation_question_uses_hidden_builtin_guide(tmp_path):
 
 
 def test_answer_metadata_is_removed_but_natural_body_is_kept():
-    answer = "**第三次讲座**介绍了工程管理研究。\n\n来源：某文档（2026-01-01）"
+    answer = "## 第三次讲座\n\n**第三次讲座**介绍了工程管理研究。\n\n来源：某文档（2026-01-01）"
 
-    assert _strip_answer_metadata(answer) == "第三次讲座介绍了工程管理研究。"
+    assert _strip_answer_metadata(answer) == "第三次讲座\n\n第三次讲座介绍了工程管理研究。"
 
 
 def test_read_document_selects_the_chunk_matching_the_specific_entity(tmp_path):

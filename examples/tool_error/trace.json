@@ -17,7 +17,9 @@
         "step": 1,
         "action": "error",
         "error": "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND",
-        "mode": "real"
+        "mode": "real",
+        "next_action": null,
+        "decision_summary": "运行在当前步骤终止，返回明确的失败或取消状态。"
       }
     ],
     "mode": "real",
@@ -38,7 +40,9 @@
       "step": 1,
       "action": "error",
       "error": "图片/扫描件需要安装 Tesseract OCR，并配置 TESSERACT_COMMAND",
-      "mode": "real"
+      "mode": "real",
+      "next_action": null,
+      "decision_summary": "运行在当前步骤终止，返回明确的失败或取消状态。"
     }
   ],
   "events": [

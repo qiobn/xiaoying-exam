@@ -586,6 +586,48 @@ def _query_numeric_facts(question: str, reads: list[dict]) -> tuple[set[tuple[st
     return facts, matched_reads
 
 
+def _enrich_trace_decisions(trace: list[dict], max_tool_calls: int) -> list[dict]:
+    """Add auditable next-action summaries and cumulative tool budgets."""
+    enriched = [dict(item) for item in trace]
+    cumulative = 0
+    for index, item in enumerate(enriched):
+        action = item.get("action")
+        if action in {"search_documents", "read_document"}:
+            cumulative += 1
+        next_action = enriched[index + 1].get("action") if index + 1 < len(enriched) else None
+        observation = item.get("observation") or {}
+        summary = str(observation.get("summary", ""))
+        document_ids = observation.get("document_ids") or []
+        if action == "query_rewrite":
+            decision = "原问题依赖上下文，已补全为可独立检索的 query。"
+        elif action == "search_documents" and document_ids:
+            decision = "检索到候选资料，下一步读取原文以获得可引用证据。"
+        elif action == "search_documents" and next_action == "search_documents":
+            decision = "当前检索没有足够候选，调整 query 后补充检索。"
+        elif action == "search_documents" and next_action == "finish":
+            decision = "检索没有可用候选，结束工具循环并报告资料不足。"
+        elif action == "read_document" and next_action == "finish":
+            decision = "已取得原文证据，结束工具调用并进入答案与引用校验。"
+        elif action == "operation_guide":
+            decision = "匹配到内置操作说明，直接生成操作指引。"
+        elif action == "scope_guard":
+            decision = "问题超出知识库与系统操作范围，不执行检索。"
+        elif action == "guardrail":
+            decision = "输入触发提示词安全规则，终止模型和工具调用。"
+        elif action in {"error", "cancelled"}:
+            decision = "运行在当前步骤终止，返回明确的失败或取消状态。"
+        elif action == "finish":
+            decision = "当前证据已满足结束条件。"
+        else:
+            decision = summary or "进入下一步。"
+        item["next_action"] = next_action
+        item["decision_summary"] = decision
+        if action in {"search_documents", "read_document"}:
+            item["tool_calls_cumulative"] = cumulative
+            item["remaining_tool_calls"] = max(0, max_tool_calls - cumulative)
+    return enriched
+
+
 def _assemble(
     question: str,
     messages: list[BaseMessage],
@@ -650,12 +692,16 @@ def _assemble(
     conflict = matched_numeric_reads > 1 and len(numeric_facts) > 1
     if conflict:
         return AgentResult("检索到多份制度原文，当前证据存在可能冲突，不能在缺少适用范围或优先级时擅自选择。", "needs_clarification", citations, ["需要确认适用地区、员工范围或制度优先级。"], "请确认本问题适用的地区/员工范围，或指定优先制度。", trace, settings.mode)
-    answer = _strip_answer_metadata(str(final_message.content)) if final_message else _natural_fallback(query_topics, reads)
+    answer = (
+        _strip_answer_metadata(str(final_message.content))
+        if final_message
+        else _strip_answer_metadata(_natural_fallback(query_topics, reads))
+    )
     if not answer:
-        answer = _natural_fallback(query_topics, reads)
+        answer = _strip_answer_metadata(_natural_fallback(query_topics, reads))
     cited_text = " ".join(values)
     if any(number not in cited_text for number in re.findall(r"\d+(?:\.\d+)?", answer)):
-        answer = _natural_fallback(query_topics, reads)
+        answer = _strip_answer_metadata(_natural_fallback(query_topics, reads))
     return AgentResult(answer, "completed", citations, [], None, trace, settings.mode)
 
 
@@ -680,6 +726,7 @@ def run_agent(
             "arguments": {"reason": guard_decision.reason},
             "mode": settings.mode,
         }]
+        trace = _enrich_trace_decisions(trace, settings.max_tool_calls)
         if on_event:
             on_event("trace", trace[0])
         _emit_stage(on_event, "安全检查", f"已拦截：{guard_decision.reason}")
@@ -717,6 +764,7 @@ def run_agent(
             "arguments": {"reason": route.reason, "kind": route.kind},
             "mode": settings.mode,
         }]
+        trace = _enrich_trace_decisions(trace, settings.max_tool_calls)
         _emit_stage(on_event, "范围判断", "问题超出企业知识库与操作指引范围", step=0)
         _emit_mock_tokens(answer, on_event, "answer")
         _emit_stage(on_event, "回答完成", "状态：out_of_scope")
@@ -864,6 +912,10 @@ def run_agent(
         trace = state["trace"] + [{"step": state["step"] + 1, "action": "error", "error": str(exc)[:240], "mode": settings.mode}]
         return AgentResult("Agent 执行失败，未生成可靠答案。", "tool_error", [], ["请检查模型配置或工具运行日志。"], None, trace, settings.mode)
     _emit_stage(on_event, "结果校验", "校验原文引用、冲突与任务状态", status="running")
+    result["trace"] = _enrich_trace_decisions(
+        result.get("trace", []),
+        settings.max_tool_calls,
+    )
     final = _assemble(
         question,
         result.get("messages", []),

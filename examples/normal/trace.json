@@ -35,7 +35,11 @@
             "51be74c8-e405-4704-9457-333f517abee7"
           ],
           "security_warnings": []
-        }
+        },
+        "next_action": "read_document",
+        "decision_summary": "检索到候选资料，下一步读取原文以获得可引用证据。",
+        "tool_calls_cumulative": 1,
+        "remaining_tool_calls": 7
       },
       {
         "step": 2,
@@ -52,13 +56,19 @@
             "4a7cd099-6115-4f03-ac91-25245fe74fdb"
           ],
           "security_warnings": []
-        }
+        },
+        "next_action": "finish",
+        "decision_summary": "已取得原文证据，结束工具调用并进入答案与引用校验。",
+        "tool_calls_cumulative": 2,
+        "remaining_tool_calls": 6
       },
       {
         "step": 3,
         "action": "finish",
         "arguments": {},
-        "mode": "real"
+        "mode": "real",
+        "next_action": null,
+        "decision_summary": "当前证据已满足结束条件。"
       }
     ],
     "mode": "real",
@@ -121,7 +131,11 @@
           "51be74c8-e405-4704-9457-333f517abee7"
         ],
         "security_warnings": []
-      }
+      },
+      "next_action": "read_document",
+      "decision_summary": "检索到候选资料，下一步读取原文以获得可引用证据。",
+      "tool_calls_cumulative": 1,
+      "remaining_tool_calls": 7
     },
     {
       "step": 2,
@@ -138,13 +152,19 @@
           "4a7cd099-6115-4f03-ac91-25245fe74fdb"
         ],
         "security_warnings": []
-      }
+      },
+      "next_action": "finish",
+      "decision_summary": "已取得原文证据，结束工具调用并进入答案与引用校验。",
+      "tool_calls_cumulative": 2,
+      "remaining_tool_calls": 6
     },
     {
       "step": 3,
       "action": "finish",
       "arguments": {},
-      "mode": "real"
+      "mode": "real",
+      "next_action": null,
+      "decision_summary": "当前证据已满足结束条件。"
     }
   ],
   "events": [

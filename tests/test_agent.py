@@ -1,4 +1,4 @@
-from knowledge_agent.agent import run_agent
+from knowledge_agent.agent import _enrich_trace_decisions, run_agent
 from knowledge_agent.config import Settings
 from knowledge_agent.ingestion import build_kb, sha256
 from knowledge_agent.persistence import Store
@@ -110,3 +110,30 @@ def test_same_grade_values_from_table_and_prose_are_not_false_conflict(tmp_path)
 
     assert result.status == "completed"
     assert "900" in result.answer
+
+
+def test_trace_records_next_action_decision_summary_and_tool_budget():
+    trace = [
+        {
+            "step": 1,
+            "action": "search_documents",
+            "arguments": {"query": "报销期限"},
+            "observation": {"summary": "2 个候选", "document_ids": ["doc-1"]},
+        },
+        {
+            "step": 2,
+            "action": "read_document",
+            "arguments": {"document_id": "doc-1"},
+            "observation": {"summary": "读取 1 个原文块", "document_ids": ["doc-1"]},
+        },
+        {"step": 3, "action": "finish", "arguments": {}},
+    ]
+
+    enriched = _enrich_trace_decisions(trace, max_tool_calls=8)
+
+    assert enriched[0]["next_action"] == "read_document"
+    assert "读取原文" in enriched[0]["decision_summary"]
+    assert enriched[0]["tool_calls_cumulative"] == 1
+    assert enriched[1]["next_action"] == "finish"
+    assert enriched[1]["tool_calls_cumulative"] == 2
+    assert enriched[1]["remaining_tool_calls"] == 6

@@ -146,23 +146,9 @@ uv run knowledge-agent-eval --db runtime/knowledge.db --output examples/evaluati
 - 真实 Trace 位于 `examples/`，评测口径见 `docs/03-evaluation.md`。
 - 流式 token 按 160 字或 250ms 合并后持久化；原始日志面板隐藏 token 和已单独展示的阶段事件，避免一次回答产生数百条无审计价值的记录。
 
-## 典型问题与产品迭代
-
-### 1. 主 Agent 强制检索导致延迟和可用性下降
-
-早期版本对每轮对话都先执行知识库检索，问候和普通交流也会进入 RAG；本地 reranker 即使已有缓存仍会访问 Hugging Face 校验，网络异常时 run 长时间停在 `running`。
-
-改进后增加按需检索网关，普通问题直接回答，只有知识问题才绑定检索工具；本地模型直接加载缓存 snapshot，并通过超时和 fallback 保证失败可见。这个迭代的价值是降低无关检索和外部网络对核心对话链路的影响。
-
-### 2. 图片视觉识别成功但检索误报资料不足
-
-图片已经通过视觉模型生成了学生卡描述，但用户问“这张图是什么内容”时，query 与视觉描述没有词法重叠，检索返回 0 候选，最终错误返回 `not_found`。
-
-改进后增加图片意图召回和附件范围回退，视觉成功时标记 `method=vision`，OCR 不可用不再覆盖视觉结果。这个迭代说明多模态 RAG 不能只解决“如何解析图片”，还必须设计面向图片内容的检索路由。
-
 ## 验证摘要
 
-- `uv run pytest -q`：67 项测试通过。
+- `uv run pytest -q`：68 项测试通过。
 - `uv run knowledge-agent-eval --db runtime/knowledge.db`：20 条检索评测，Recall@5 和 MRR 均为 0.95。
 - 提供正常回答、资料不足和工具失败三组实际 Trace，位于 `examples/`。
 - 前端构建通过，浏览器验证覆盖上传、构建、自然语言问答、流式阶段、折叠引用和停止运行。
