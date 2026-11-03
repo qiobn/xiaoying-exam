@@ -69,6 +69,7 @@ python run.py
 | `VISION_ENABLED` / `VISION_MODEL` | `false` / 空 | 是否用多模态模型描述图表，留空复用问答模型 |
 | `VISION_API_URL` / `VISION_API_KEY` | 空 | 可与文字模型不同的视觉服务地址和密钥 |
 | `VISION_TIMEOUT_SECONDS` / `MAX_EMBEDDED_IMAGES` | `60` / `20` | 视觉调用超时和单文档图片上限 |
+| `STREAM_TOKEN_BATCH_CHARS` / `STREAM_TOKEN_BATCH_MS` | `160` / `250` | 流式 token 持久化批大小与最大等待时间 |
 | `KNOWLEDGE_AGENT_MAX_STEPS` / `KNOWLEDGE_AGENT_MAX_TOOL_CALLS` | `6` / `8` | Agent 图的执行上限 |
 | `MINERU_COMMAND` | 空 | 可选 MinerU CLI；配置后优先处理 PDF |
 | `MINERU_SERVER_URL` / `MINERU_METHOD` | 空 / `auto` | MinerU HTTP 后端地址和解析方式 |
@@ -83,6 +84,7 @@ python run.py
 - **Rerank**：本地推荐 `BAAI/bge-reranker-base`，CPU 成本较高，可关闭或将候选数调小；也可配置 DashScope 或通用 HTTP 服务。重排服务失败会保留第一阶段结果，并在检索诊断和运行日志中显示回退原因。
 - **可选依赖**：默认 `requirements.txt` 不安装 PyTorch。需要本地模型时执行 `uv sync --extra local-rag` 或 `pip install -r requirements-local-rag.txt`；首次下载时临时关闭离线模式，未安装依赖、模型未缓存或加载失败都会回退 BM25。
 - **解析**：TXT/Markdown 本地解码，CSV 转换为 Markdown 表格；DOCX 按正文顺序解析段落、表格和内嵌图片；PDF 由 PyMuPDF 提取文本与表格。配置 MinerU CLI 后优先使用 MinerU；图片及扫描 PDF 通过 Tesseract OCR，可选视觉模型补充图表、截图和复杂版面的描述。MinerU/Tesseract 是外部系统依赖，不会由 Python requirements 自动安装。
+- **图片理解顺序**：启用视觉能力时优先复用配置的多模态模型生成图片描述；OCR 只作补充，Tesseract 不可用不会覆盖已经成功的视觉结果。
 - **能力状态**：Settings 页面以及 `/api/capabilities` 返回运行时模式、配置模型和 MinerU/OCR 实际可用状态。
 
 本地模型首次下载时可临时设置 `MODEL_LOCAL_FILES_ONLY=false`，下载完成后改回 `true`。服务会优先解析 `runtime/models` 中已存在的 Hugging Face snapshot 路径并直接离线加载，避免缓存命中后仍访问 Hub 校验。
@@ -118,6 +120,7 @@ uv run knowledge-agent-eval --db runtime/knowledge.db --output examples/evaluati
 - `/api/runs/{id}/cancel` 支持协作式取消；`Idempotency-Key` 防止重复创建 run。
 - 文档列表支持删除和重新解析；原始上传文件保存在被 Git 忽略的 `runtime/uploads/`。
 - 真实 Trace 位于 `examples/`，评测口径见 `docs/03-evaluation.md`。
+- 流式 token 按 160 字或 250ms 合并后持久化；原始日志面板隐藏 token 和已单独展示的阶段事件，避免一次回答产生数百条无审计价值的记录。
 
 ## 目录
 

@@ -63,6 +63,8 @@ class Settings(BaseModel):
     max_embedded_images: int = 20
     max_steps: int = 6
     max_tool_calls: int = 8
+    stream_token_batch_chars: int = 160
+    stream_token_batch_ms: int = 250
 
 
 def settings_file_path() -> Path:
@@ -158,6 +160,8 @@ def load_settings() -> Settings:
         max_embedded_images=_env_int(values, "MAX_EMBEDDED_IMAGES", 20),
         max_steps=_env_int(values, "KNOWLEDGE_AGENT_MAX_STEPS", 6),
         max_tool_calls=_env_int(values, "KNOWLEDGE_AGENT_MAX_TOOL_CALLS", 8),
+        stream_token_batch_chars=_env_int(values, "STREAM_TOKEN_BATCH_CHARS", 160),
+        stream_token_batch_ms=_env_int(values, "STREAM_TOKEN_BATCH_MS", 250),
     )
 
 
@@ -194,6 +198,8 @@ def save_settings(updates: dict[str, Any]) -> Settings:
         "vision_api_url": "VISION_API_URL", "vision_api_key": "VISION_API_KEY",
         "vision_timeout_seconds": "VISION_TIMEOUT_SECONDS",
         "max_embedded_images": "MAX_EMBEDDED_IMAGES",
+        "stream_token_batch_chars": "STREAM_TOKEN_BATCH_CHARS",
+        "stream_token_batch_ms": "STREAM_TOKEN_BATCH_MS",
     }
     for field, env_name in key_map.items():
         if field in updates and updates[field] is not None:

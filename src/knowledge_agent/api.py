@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from .agent import run_agent
 from .config import load_settings, save_settings
+from .eventing import BufferedRunEventPublisher
 from .ingestion import build_kb, sha256
 from .parsers import SUPPORTED_EXTENSIONS, parse_attachment
 from .persistence import Store
@@ -499,6 +500,7 @@ async def execute_run(run_id: str, session_id: str, payload: RunIn, attachments:
     session = next((s for s in store.sessions() if s["id"] == session_id), None)
     if not session: return
     store.add_event(run_id, "run_started", {"question": payload.question, "attachments": [name for name, _ in (attachments or [])]})
+    publisher = BufferedRunEventPublisher(store, run_id, settings)
     attachment_ids = []
     run_record = store.run(run_id) or {}
     request_id = run_record.get("request_id", "")
@@ -531,7 +533,7 @@ async def execute_run(run_id: str, session_id: str, payload: RunIn, attachments:
             payload.question,
             payload.history,
             settings,
-            lambda t, e: store.add_event(run_id, t, e),
+            publisher,
             attachment_ids or None,
             lambda: store.is_cancel_requested(run_id),
         )
@@ -547,11 +549,13 @@ async def execute_run(run_id: str, session_id: str, payload: RunIn, attachments:
             "metrics": {"request_id": request_id},
         }
         store.add_event(run_id, "run_error", {"error": str(exc)[:240]})
+        publisher.flush()
         store.finish_run(run_id, result)
         store.update_run_metrics(run_id, result["metrics"])
         store.add_event(run_id, "run_finished", {"status": result["status"], "result": result})
         return
     result.metrics = {**result.metrics, "request_id": request_id}
+    publisher.flush()
     store.finish_run(run_id, result.to_dict())
     store.update_run_metrics(run_id, result.metrics)
     store.add_event(run_id, "run_finished", {"status": result.status, "result": result.to_dict()})

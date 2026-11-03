@@ -75,7 +75,8 @@ def _render_image(
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         if strict and not description:
             raise ValueError(str(exc)) from exc
-        warnings.append(f"图片 OCR 跳过：{str(exc)[:180]}")
+        if not description:
+            warnings.append(f"图片 OCR 跳过：{str(exc)[:180]}")
     parts = [f"[图片 {filename}]"]
     if description:
         parts.append(f"图片描述：{description}")
@@ -364,10 +365,23 @@ def parse_attachment(filename: str, data: bytes, settings: Settings) -> ParseRes
         return _parse_pdf(data, filename, settings)
     warnings: list[str] = []
     text = _render_image(data, Path(filename).name, settings, warnings, strict=True)
+    vision_used = "图片描述：" in text
+    ocr_used = "图中文字：" in text
+    if vision_used and ocr_used:
+        parser, method = "Vision + Tesseract", "vision_ocr"
+    elif vision_used:
+        parser, method = "Vision", "vision"
+    else:
+        parser, method = "Tesseract", "ocr"
     return ParseResult(
         text=text,
-        parser="Tesseract + Vision" if settings.vision_enabled else "Tesseract",
-        method="ocr",
+        parser=parser,
+        method=method,
         warnings=warnings,
-        metadata={"table_count": count_markdown_tables(text), "image_count": 1},
+        metadata={
+            "table_count": count_markdown_tables(text),
+            "image_count": 1,
+            "vision_used": vision_used,
+            "ocr_used": ocr_used,
+        },
     )
